@@ -1,0 +1,83 @@
+# Vercel Web Analytics Implementation
+
+## Summary
+Successfully implemented Vercel Web Analytics for the VIT Bhopal FFCS Timetable Builder project following the latest official Vercel documentation.
+
+## Changes Made
+
+### 1. Package Installation
+- **Installed**: `@vercel/analytics@2.0.1`
+- **Package Manager**: npm (detected from existing `package-lock.json`)
+- **Command Used**: `npm install @vercel/analytics`
+
+### 2. Analytics Implementation
+- **Framework**: Vanilla HTML/JavaScript (with React loaded via CDN)
+- **Implementation Method**: Vanilla JavaScript approach as per Vercel documentation
+- **Location**: Added to `index.html` in the `<head>` section
+
+### 3. Code Changes
+
+#### Created Files:
+1. **.gitignore**
+   - Created to ensure node_modules and build artifacts are not committed
+   - Includes standard patterns for JavaScript/Node.js projects
+
+#### Modified Files:
+1. **index.html**
+   - Added Vercel Web Analytics script initialization
+   - Added deferred analytics script loader
+   - Placement: After Babel Standalone script, before styles section
+   
+   ```html
+   <!-- Vercel Web Analytics -->
+   <script>
+       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+   </script>
+   <script defer src="/_vercel/insights/script.js"></script>
+   ```
+
+2. **package.json**
+   - Added `@vercel/analytics` to dependencies
+
+3. **package-lock.json**
+   - Updated with new dependency tree (37 packages added)
+
+## Implementation Details
+
+### Why This Approach?
+The project uses a vanilla HTML/JavaScript architecture with React loaded via UMD builds from CDN (unpkg.com). According to the Vercel Analytics documentation, for vanilla JavaScript/HTML projects, the recommended approach is to inject the analytics script using inline script tags that initialize the `window.va` function and load the analytics script from Vercel's infrastructure.
+
+This approach:
+- Works seamlessly with the existing architecture
+- Requires no build process changes
+- Automatically tracks page views when deployed to Vercel
+- Uses Vercel's CDN-served analytics script (`/_vercel/insights/script.js`)
+
+### Project Structure Analysis
+- No build scripts or compilation steps
+- React components defined inline with Babel Standalone
+- Purely client-side application
+- Deployed to Netlify/Vercel (as indicated by dependencies)
+
+### Next Steps for Full Activation
+1. **Deploy to Vercel**: The analytics will only fully activate when deployed to Vercel
+2. **Enable in Dashboard**: Ensure Web Analytics is enabled in the Vercel project dashboard
+3. **Verify Tracking**: After deployment, check browser Network tab for requests to `/_vercel/insights/view`
+4. **View Data**: Analytics data will appear in the Vercel dashboard after initial visitor traffic
+
+## Validation
+
+✅ Package successfully installed
+✅ HTML syntax validated
+✅ Changes preserve existing code structure
+✅ No build process required
+✅ Lock files properly updated
+✅ Implementation follows official Vercel documentation
+
+## Technical Notes
+
+- The `window.va` function serves as a queue for analytics events before the script loads
+- The `defer` attribute ensures the analytics script loads after HTML parsing completes
+- The script path `/_vercel/insights/script.js` is automatically served by Vercel's infrastructure
+- Analytics will track page views, user interactions, and performance metrics automatically
+- The implementation is non-blocking and won't affect page load performance
