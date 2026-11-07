@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIT Bhopal FFCS Timetable Builder</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <!-- lucide-react's UMD build looks up React as a lowercase global -->
+    <script>window.react = window.React;</script>
+    <!-- Lucide Icons (React components) -->
+    <script crossorigin src="https://unpkg.com/lucide-react@0.460.0/dist/umd/lucide-react.min.js"></script>
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .weekly-planner { --planner-line: #e5eaf0; border: 1px solid var(--planner-line); border-radius: 18px; background: #fff; box-shadow: 0 4px 24px #20304706; overflow: hidden; }
+        .planner-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 24px; }
+        .planner-eyebrow { color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+        .planner-heading h2 { margin-top: 4px; font-size: 21px; font-weight: 750; letter-spacing: -.04em; color: #1e293b; }
+        .planner-heading p { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .planner-week { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--planner-line); border-radius: 8px; font-size: 11px; font-weight: 600; color: #475569; white-space: nowrap; }
+        .planner-scroll { overflow-x: auto; }
+        .planner-table { width: 100%; min-width: 1100px; table-layout: fixed; border-collapse: separate; border-spacing: 0; text-align: left; }
+        .planner-table th { background: #f8fafc; border-top: 1px solid var(--planner-line); border-bottom: 1px solid var(--planner-line); padding: 15px 10px; color: #334155; font-size: 11px; font-weight: 700; }
+        .planner-table .planner-time { display: block; margin-top: 5px; font-size: 10px; font-weight: 500; color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .planner-table .planner-day { position: sticky; left: 0; z-index: 1; width: 88px; background: #f8fafc; border-right: 1px solid var(--planner-line); padding: 14px; }
+        .planner-day strong { display: block; font-size: 12px; color: #334155; }
+        .planner-day small { display: block; margin-top: 5px; font-size: 10px; color: #64748b; font-weight: 400; }
+        .planner-table td { height: 136px; vertical-align: top; border-bottom: 1px solid var(--planner-line); border-right: 1px solid #f1f5f9; padding: 8px; }
+        .planner-table tr:last-child td, .planner-table tr:last-child th { border-bottom: 0; }
+        .planner-table tbody th { border-top: 0; }
+        .planner-table .planner-break { width: 50px; padding: 12px 4px; background: #fcfaf5; text-align: center; color: #8b7351; }
+        .planner-break span { writing-mode: vertical-rl; font-size: 9px; letter-spacing: .15em; text-transform: uppercase; }
+        .planner-slot { display: block; margin-bottom: 6px; font-size: 9px; font-weight: 600; letter-spacing: .05em; color: #64748b; }
+        .planner-free { display: block; margin-top: 29px; text-align: center; font-size: 10px; color: #94a3b8; }
+        .planner-class { background: var(--course-bg); color: var(--course-ink); border: 1px solid var(--course-border); border-left: 3px solid var(--course-accent); border-radius: 8px; padding: 9px 8px; margin-bottom: 5px; overflow-wrap: anywhere; }
+        .planner-class strong { display: block; font-size: 12px; letter-spacing: -.02em; }
+        .planner-class .planner-title { margin-top: 3px; font-size: 10px; font-weight: 600; line-height: 1.4; }
+        .planner-class .planner-faculty { margin-top: 7px; font-size: 9px; line-height: 1.5; text-transform: capitalize; }
+        .planner-venue { display: inline-block; margin-top: 6px; font-size: 9px; font-weight: 700; }
+        .planner-clash { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
+        .planner-clash-label { display: block; color: #be123c; font-size: 9px; font-weight: 700; margin-bottom: 5px; }
+        .planner-legend { display: flex; flex-wrap: wrap; gap: 10px 20px; padding: 16px 24px; border-top: 1px solid var(--planner-line); background: #fafbfd; }
+        .planner-legend-item { display: flex; align-items: center; gap: 7px; font-size: 10px; color: #475569; }
+        .planner-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 3px; background: var(--course-accent); }
+        .planner-empty { margin: 0 24px 20px; padding: 16px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; font-size: 12px; color: #64748b; }
+        .planner-hint { display: none; }
+        @media (max-width: 1150px) { .planner-hint { display: block; padding: 0 24px 12px; font-size: 10px; color: #64748b; } }
+        @media (max-width: 640px) { .planner-heading { padding: 18px 16px; align-items: flex-start; } .planner-week { font-size: 10px; padding: 6px 8px; } .planner-heading h2 { font-size: 19px; } .planner-legend { padding: 16px; } }
+        @media print { .planner-scroll { overflow: visible; } .planner-table { min-width: 0; } .planner-table .planner-day { position: static; width: 60px; padding: 6px; } .planner-table th { padding: 8px 3px; } .planner-table td { padding: 3px; } .planner-table .planner-break { width: 30px; } .planner-time { white-space: normal !important; } .weekly-planner { print-color-adjust: exact; -webkit-print-color-adjust: exact; } .planner-hint { display: none; } }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+        }
+
+        /* Academic portal: ink blue, warm paper and restrained brass details. */
+        body { background: #f4f3ee !important; color: #25364a; font-family: "Trebuchet MS", "Segoe UI", sans-serif !important; }
+        h1, h2, h3, .planner-heading h2 { font-family: Georgia, "Times New Roman", serif; letter-spacing: -.025em; }
+        button, input, select { accent-color: #183c59; }
+        button, select, input { transition: background-color .16s, border-color .16s; }
+        button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #a57c36; outline-offset: 3px; }
+        button:disabled { cursor: not-allowed; opacity: .55; }
+        .developer-strip { background: #112e46; color: #f6e6bd; padding: 10px 20px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .14em; border-bottom: 3px solid #b39150; }
+        .institution-header { background: #fffefb; color: #19354c; border-bottom: 1px solid #d9d9cf; }
+        .institution-header > div { padding-top: 25px; padding-bottom: 25px; }
+        .institution-header h1 { font-size: clamp(20px, 3vw, 29px); font-weight: 600; }
+        .institution-mark { width: 68px; height: 68px; flex-shrink: 0; display: grid; place-items: center; color: #183c59; border: 2px solid #a8874d; outline: 1px solid #d8c6a4; outline-offset: 4px; border-radius: 50%; font: bold 24px Georgia, serif; }
+        .institution-kicker { color: #8a6b35; font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; margin-bottom: 5px; }
+        .institution-header .semester { color: #64717c; margin-top: 6px; font-size: 12px; }
+        .portal-nav { background: #193b55; border-bottom: 3px solid #b39150; }
+        .portal-nav button { color: #ecf0f3; border-radius: 2px; }
+        .portal-nav button:hover { background: #2b506b !important; }
+        .portal-nav button[aria-current="page"] { background: #fffefb !important; color: #17394f; box-shadow: inset 0 -3px #b39150; }
+        .portal-nav button.border { border-color: #718492; }
+        main { padding-top: 28px !important; padding-bottom: 40px !important; }
+        .page-intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #d6d8d4; }
+        .page-intro h2 { font-size: 30px; color: #17394f; }
+        .page-intro p { color: #64717c; font-size: 12px; margin-top: 5px; }
+        main .rounded-xl, main .rounded-lg, .weekly-planner { border-radius: 4px; }
+        main .shadow-sm, .weekly-planner { box-shadow: 0 3px 12px #193b5507; }
+        main .border-slate-200, .weekly-planner { border-color: #dcded7; }
+        main .bg-blue-600, main .bg-violet-600 { background: #193b55; }
+        main .hover\:bg-blue-700:hover, main .hover\:bg-violet-700:hover { background: #284e6c; }
+        main .text-blue-600, main .text-blue-700, main .text-violet-600, main .text-violet-700 { color: #204c69; }
+        main .bg-blue-50, main .bg-violet-50 { background: #eef2f3; }
+        main .bg-blue-100 { background: #e7eef1; }
+        main .border-violet-400 { border-color: #8b713d; }
+        .planner-heading { background: #fffefb; border-top: 3px solid #b39150; }
+        .planner-heading h2 { font-size: 24px; font-weight: 600; }
+        .planner-table th, .planner-table .planner-day { background: #edf1f2; }
+        .credit-budget { background: #f5f4ed; border: 1px solid #dcd9c9; padding: 14px 16px; }
+        .credit-budget progress { display: block; width: 100%; height: 7px; margin-top: 10px; accent-color: #193b55; }
+        .credit-budget progress::-webkit-progress-bar { background: #dedfd6; }
+        .credit-budget progress::-webkit-progress-value { background: #193b55; }
+        .credit-unavailable { opacity: .55; cursor: not-allowed !important; }
+        .portal-footer { background: #112e46; color: #e0e6e8; border-top: 3px solid #b39150; line-height: 1.8; }
+        @media (max-width: 640px) { .institution-header > div { padding-top: 20px; padding-bottom: 20px; } .institution-mark { width: 48px; height: 48px; font-size: 18px; } .developer-strip { letter-spacing: .07em; font-size: 10px; } .page-intro { align-items: flex-start; flex-direction: column; } .page-intro h2 { font-size: 26px; } }
+        @media print { .developer-strip { background: white; color: #19354c; border-bottom: 1px solid #a8874d; } .institution-header > div { padding-top: 10px; padding-bottom: 10px; } .page-intro { display: none; } }
+        /* Refined academic stationery: warm paper, engraved rules, spacious controls. */
+        body { background: #f2f0e9 !important; }
+        .institution-header { background: linear-gradient(115deg, #fffdf7 65%, #eee9dc); }
+        .institution-header > div { padding-top: 32px; padding-bottom: 32px; }
+        .institution-kicker { letter-spacing: .24em; }
+        .page-intro { padding: 12px 0 26px; border-bottom: 1px solid #c9c6b9; }
+        .page-intro h2 { font-size: clamp(32px, 4vw, 44px); font-weight: 400; }
+        main > .space-y-6 > .bg-white { padding: clamp(20px, 3vw, 32px); }
+        main .rounded-xl, main .rounded-lg, .weekly-planner { border-radius: 12px; }
+        main .shadow-sm, .weekly-planner { box-shadow: 0 8px 28px #193b5508; }
+        .portal-nav { box-shadow: 0 4px 16px #193b5512; }
+        .portal-nav button { border-radius: 5px; }
+        .credit-budget { border-radius: 8px; background: #f7f5ee; }
+        .student-category { border-bottom: 1px solid #e4e1d7; padding: 16px 0 24px; }
+        .student-category legend { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; font-weight: 700; color: #816333; padding-top: 10px; margin-bottom: 10px; }
+        .category-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .category-option { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #dcded7; padding: 20px; border-radius: 8px; background: #fafaf7; cursor: pointer; transition: background .18s, border-color .18s; }
+        .category-option input { margin-top: 4px; }
+        .category-option strong { display: block; font: 20px Georgia, serif; color: #193b55; }
+        .category-option small { display: block; margin-top: 9px; font-size: 11px; line-height: 1.8; color: #65717a; }
+        .category-option:hover { border-color: #a8874d; }
+        .category-option.is-selected { background: #edf2f3; border-color: #193b55; box-shadow: inset 0 3px #a8874d; }
+        .student-category:disabled .category-option { cursor: wait; opacity: .65; }
+        @media (max-width: 640px) { .category-options { grid-template-columns: 1fr; } .category-option { padding: 16px; } .institution-header > div { padding-top: 22px; padding-bottom: 22px; } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+    <div id="root">
+        <div class="min-h-screen flex items-center justify-center text-slate-500 text-sm">Loading timetable builder…</div>
+    </div>
+
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useMemo } = React;
+        const {
+            Calendar, BookOpen, Clock, AlertTriangle, Download, Plus, Trash2, Edit3,
+            Copy, Sparkles, CheckCircle2, Layers, Search, Printer, X, Columns
+        } = LucideReact;
+
+        // ==========================================
+        // 1. DATASETS & MATRIX DEFINITIONS
+        // ==========================================
+        const TIMETABLE_MATRIX = {
+            "Monday":    { "P1": "A11", "P2": "B11", "P3": "C11", "P4": "A21", "P5": "A14", "P6": "B21", "P7": "C21" },
+            "Tuesday":   { "P1": "D11", "P2": "E11", "P3": "F11", "P4": "D21", "P5": "E14", "P6": "E21", "P7": "F21" },
+            "Wednesday": { "P1": "A12", "P2": "B12", "P3": "C12", "P4": "A22", "P5": "B14", "P6": "B22", "P7": "A24" },
+            "Thursday":  { "P1": "D12", "P2": "E12", "P3": "F12", "P4": "D22", "P5": "F14", "P6": "E22", "P7": "F22" },
+            "Friday":    { "P1": "A13", "P2": "B13", "P3": "C13", "P4": "A23", "P5": "C14", "P6": "B23", "P7": "B24" },
+            "Saturday":  { "P1": "D13", "P2": "E13", "P3": "F13", "P4": "D23", "P5": "D14", "P6": "D24", "P7": "E23" }
+        };
+
+        const PERIOD_TIMINGS = [
+            { id: "P1", name: "Period 1", time: "08:30 - 10:00" },
+            { id: "P2", name: "Period 2", time: "10:05 - 11:35" },
+            { id: "P3", name: "Period 3", time: "11:40 - 13:10" },
+            { id: "P4", name: "Period 4", time: "13:15 - 14:45" },
+            { id: "P5", name: "Period 5", time: "14:50 - 16:20" },
+            { id: "P6", name: "Period 6", time: "16:25 - 17:55" },
+            { id: "P7", name: "Period 7", time: "18:00 - 19:30" }
+        ];
+
+        const INITIAL_SUBJECTS = [
+            {
+                code: "CSE2006",
+                title: "Programming in Java",
+                credits: 3,
+                type: "LP",
+                owner: "SCSE",
+                options: [
+                    { id: "j1", slots: ["A11", "A13"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j2", slots: ["A12", "A13"], venue: "AB02-303", faculty: "FACE TRAINER 8" },
+                    { id: "j3", slots: ["A14", "D11"], venue: "AB02-218", faculty: "FACE TRAINER 6" },
+                    { id: "j4", slots: ["A14", "D12"], venue: "AB02-302", faculty: "FACE TRAINER 7" },
+                    { id: "j5", slots: ["A21", "A22"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j6", slots: ["A21", "A23"], venue: "AB02-019", faculty: "FACE TRAINER 7" },
+                    { id: "j7", slots: ["A22", "A23"], venue: "AB02-317", faculty: "FACE TRAINER 8" },
+                    { id: "j8", slots: ["A24", "E21"], venue: "AB02-119", faculty: "FACE TRAINER 2" },
+                    { id: "j9", slots: ["A24", "E21"], venue: "AB02-017", faculty: "FACE TRAINER 6" },
+                    { id: "j10", slots: ["A24", "F22"], venue: "AB02-018", faculty: "FACE TRAINER 7" },
+                    { id: "j11", slots: ["B11", "B12"], venue: "AB02-219", faculty: "FACE TRAINER 8" },
+                    { id: "j12", slots: ["B11", "B13"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j13", slots: ["B12", "B13"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "j14", slots: ["B14", "B23"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j15", slots: ["B14", "D21"], venue: "AB02-225", faculty: "FACE TRAINER 7" },
+                    { id: "j16", slots: ["B21", "E14"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j17", slots: ["B21", "E22"], venue: "AB02-019", faculty: "FACE TRAINER 7" },
+                    { id: "j18", slots: ["B22", "B24"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j19", slots: ["B22", "F21"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "j20", slots: ["B23", "D21"], venue: "AB02-320", faculty: "FACE TRAINER 8" },
+                    { id: "j21", slots: ["B24", "F21"], venue: "AB02-320", faculty: "FACE TRAINER 8" },
+                    { id: "j22", slots: ["C11", "C12"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j23", slots: ["C11", "C13"], venue: "AB02-416", faculty: "FACE TRAINER 8" },
+                    { id: "j24", slots: ["C14", "E11"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j25", slots: ["C14", "E12"], venue: "AB02-019", faculty: "FACE TRAINER 7" },
+                    { id: "j26", slots: ["C21", "F11"], venue: "AB02-002", faculty: "FACE TRAINER 2" },
+                    { id: "j32", slots: ["C21", "F12"], venue: "AB02-420", faculty: "FACE TRAINER 8" },
+                    { id: "j27", slots: ["D11", "D12"], venue: "AB02-118", faculty: "FACE TRAINER 2" },
+                    { id: "j28", slots: ["D11", "D12"], venue: "AB02-318", faculty: "FACE TRAINER 8" },
+                    { id: "j29", slots: ["E11", "E12"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "j30", slots: ["E11", "E12"], venue: "AB02-320", faculty: "FACE TRAINER 8" },
+                    { id: "j31", slots: ["E14", "E22"], venue: "AB02-323", faculty: "FACE TRAINER 8" }
+                ]
+            },
+            {
+                code: "CSE0002",
+                title: "OPEN SOURCE SOFTWARE (LINUX ADMINISTRATION)",
+                credits: 2,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "oss1", slots: ["B14"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss2", slots: ["B21"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss3", slots: ["B22"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss4", slots: ["B23"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss5", slots: ["B24"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss6", slots: ["C14"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss7", slots: ["E14"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss8", slots: ["E21"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss9", slots: ["E22"], venue: "Online", faculty: "KANNAN S" },
+                    { id: "oss10", slots: ["F14"], venue: "Online", faculty: "KANNAN S" }
+                ]
+            },
+            {
+                code: "SST2003",
+                title: "Dynamics of workplace communication Skills",
+                credits: 1,
+                type: "Practical",
+                owner: "SASL",
+                options: [
+                    { id: "sst1", slots: ["A11"], venue: "AB-001", faculty: "ANITA YADAV" },
+                    { id: "sst2", slots: ["A11"], venue: "AB-002", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst3", slots: ["A12"], venue: "AB-001", faculty: "SOFT SKILL" },
+                    { id: "sst4", slots: ["A12"], venue: "AB-002", faculty: "ANITA YADAV" },
+                    { id: "sst5", slots: ["A13"], venue: "AB-001", faculty: "RAJEEV SAXENA" },
+                    { id: "sst6", slots: ["A13"], venue: "AB-102", faculty: "SOFT SKILL" },
+                    { id: "sst7", slots: ["A14"], venue: "AB-001", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst8", slots: ["A14"], venue: "AB-002", faculty: "SOFT SKILL" },
+                    { id: "sst9", slots: ["A21"], venue: "AB-007", faculty: "SOUMYA SANKAR GHOSH" },
+                    { id: "sst10", slots: ["A21"], venue: "AB-021", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst11", slots: ["A22"], venue: "AB-107", faculty: "DISHA KUNDU" },
+                    { id: "sst12", slots: ["A22"], venue: "AB-021", faculty: "SOFT SKILL" },
+                    { id: "sst13", slots: ["A23"], venue: "AB-001", faculty: "DISHA KUNDU" },
+                    { id: "sst14", slots: ["A23"], venue: "AB-002", faculty: "SOFT SKILL" },
+                    { id: "sst15", slots: ["B11"], venue: "AB-001", faculty: "VINOD BHATT" },
+                    { id: "sst16", slots: ["B11"], venue: "AB-002", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst17", slots: ["B12"], venue: "AB-001", faculty: "RAJEEV SAXENA" },
+                    { id: "sst18", slots: ["B12"], venue: "AB-002", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst19", slots: ["B13"], venue: "AB-001", faculty: "SOUMYA SANKAR GHOSH" },
+                    { id: "sst20", slots: ["B13"], venue: "AB-002", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst21", slots: ["B14"], venue: "AB-114", faculty: "RAJEEV SAXENA" },
+                    { id: "sst22", slots: ["B14"], venue: "AB-001", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst23", slots: ["B21"], venue: "AB-001", faculty: "TAUSEEF QAMAR" },
+                    { id: "sst24", slots: ["B22"], venue: "AB-001", faculty: "TAUSEEF QAMAR" },
+                    { id: "sst25", slots: ["C11"], venue: "AB-001", faculty: "RAJEEV SAXENA" },
+                    { id: "sst26", slots: ["C11"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst27", slots: ["C12"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst28", slots: ["C13"], venue: "AB-001", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst29", slots: ["C13"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst30", slots: ["C14"], venue: "AB-001", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst31", slots: ["C14"], venue: "AB-002", faculty: "SOFT SKILL" },
+                    { id: "sst32", slots: ["D11"], venue: "AB-001", faculty: "ANITA YADAV" },
+                    { id: "sst33", slots: ["D11"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst34", slots: ["D12"], venue: "AB-001", faculty: "VINOD BHATT" },
+                    { id: "sst35", slots: ["D12"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst36", slots: ["D21"], venue: "AB-007", faculty: "SOUMYA SANKAR GHOSH" },
+                    { id: "sst37", slots: ["D21"], venue: "AB-021", faculty: "SOFT SKILL" },
+                    { id: "sst38", slots: ["E11"], venue: "AB-002", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst39", slots: ["E12"], venue: "AB-001", faculty: "RAJEEV SAXENA" },
+                    { id: "sst40", slots: ["E12"], venue: "AB-002", faculty: "M. PRIYAKUMARAN" },
+                    { id: "sst41", slots: ["E14"], venue: "AB-001", faculty: "DEV BRAT GUPTA" },
+                    { id: "sst42", slots: ["E14"], venue: "AB-102", faculty: "TAUSEEF QAMAR" },
+                    { id: "sst43", slots: ["F11"], venue: "AB-001", faculty: "RAJEEV SAXENA" },
+                    { id: "sst44", slots: ["F11"], venue: "AB-002", faculty: "GARGI ROY" },
+                    { id: "sst45", slots: ["F12"], venue: "AB-001", faculty: "SOUMYA SANKAR GHOSH" },
+                    { id: "sst46", slots: ["F12"], venue: "AB-002", faculty: "TAUSEEF QAMAR" },
+                    { id: "sst47", slots: ["F21"], venue: "AB-103", faculty: "TAUSEEF QAMAR" },
+                    { id: "sst48", slots: ["F22"], venue: "AB-001", faculty: "TAUSEEF QAMAR" }
+                ]
+            },
+
+            {
+                code: "PLA1004",
+                title: "Competitive Coding Practices",
+                credits: 2,
+                type: "Practical",
+                owner: "SCSE",
+                options: [
+                    { id: "pla1004_1", slots: ["A11", "A12"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_2", slots: ["A11", "A12"], venue: "AB02-103", faculty: "SMART TRAINER 1" },
+                    { id: "pla1004_3", slots: ["A21", "A22"], venue: "AB02-102", faculty: "SMART TRAINER 1" },
+                    { id: "pla1004_4", slots: ["A24", "F22"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_5", slots: ["B11", "B12"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_6", slots: ["B11", "B12"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla1004_7", slots: ["B14", "D21"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_8", slots: ["B21", "E14"], venue: "AB02-102", faculty: "SMART TRAINER 2" },
+                    { id: "pla1004_9", slots: ["B22", "B24"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_10", slots: ["C11", "C12"], venue: "AB02-102", faculty: "SMART TRAINER 2" },
+                    { id: "pla1004_11", slots: ["C11", "C12"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla1004_12", slots: ["D11", "D12"], venue: "AB01-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_13", slots: ["D11", "D12"], venue: "AB02-103", faculty: "SMART TRAINER 1" },
+                    { id: "pla1004_14", slots: ["E11", "E12"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla1004_15", slots: ["E11", "E12"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla1004_16", slots: ["F11", "F12"], venue: "AB02-102", faculty: "PAT TRAINER" }
+                ]
+            },
+            {
+                code: "CSG3006",
+                title: "Visual Effects and Computer Graphics",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csg3006_1", slots: ["B22", "B24"], venue: "AB02-419", faculty: "BALAN" },
+                    { id: "csg3006_2", slots: ["C11", "C12"], venue: "AB02-402", faculty: "BALAJI" }
+                ]
+            },
+            {
+                code: "CSG3005",
+                title: "Gaming in Cloud",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csg3005_1", slots: ["A24", "E21"], venue: "AB02-414", faculty: "SIVABALAN KR" },
+                    { id: "csg3005_2", slots: ["B14", "D21"], venue: "AB02-404", faculty: "SIVABALAN KR" }
+                ]
+            },
+            {
+                code: "CSG3007",
+                title: "Design Game using Artificial Intelligence and Machine Learning",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csg3007_1", slots: ["B14", "B23", "D21"], venue: "AB02-403", faculty: "PRIYADHARSHINI B" },
+                    { id: "csg3007_2", slots: ["C11", "C12", "C13"], venue: "AB02-401", faculty: "PRIYADHARSHINI B" }
+                ]
+            },
+            {
+                code: "CSG3008",
+                title: "3D Modelling and Animation",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csg3008_1", slots: ["B22", "B24"], venue: "AB02-421", faculty: "ASHOK PATEL" },
+                    { id: "csg3008_2", slots: ["C11", "C12"], venue: "AB02-318", faculty: "S. MUTHUSUNDARI" },
+                    { id: "csg3008_3", slots: ["F11", "F12"], venue: "AB02-419", faculty: "ASHOK PATEL" }
+                ]
+            },
+            {
+                code: "CSA4002",
+                title: "Artificial Neural Networks",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csa4002_1", slots: ["A11", "A12", "A13"], venue: "AB02-428", faculty: "RAJNEESH KUMAR PATEL" },
+                    { id: "csa4002_2", slots: ["A14", "D11", "D12"], venue: "AB02-451", faculty: "RAJNEESH KUMAR PATEL" },
+                    { id: "csa4002_3", slots: ["A21", "A22", "A23"], venue: "AB02-454", faculty: "VIJAY KUMAR TRIVEDI" },
+                    { id: "csa4002_4", slots: ["A21", "A22", "A23"], venue: "AB02-453", faculty: "NEHA RATHORE" },
+                    { id: "csa4002_5", slots: ["A24", "E21", "F22"], venue: "AB02-429", faculty: "KANNAIYA RAJAN" },
+                    { id: "csa4002_6", slots: ["A24", "E21", "F22"], venue: "AB02-428", faculty: "URIKHIMBAM BOBY CLINTON" },
+                    { id: "csa4002_7", slots: ["B11", "B12", "B13"], venue: "AB02-428", faculty: "PRAVEEN KUMAR TYAGI" },
+                    { id: "csa4002_8", slots: ["B14", "B23", "D21"], venue: "AB02-4F-T2", faculty: "URIKHIMBAM BOBY CLINTON" },
+                    { id: "csa4002_9", slots: ["B14", "B23", "D21"], venue: "AB02-451", faculty: "SATYABRATA NATH" },
+                    { id: "csa4002_10", slots: ["B21", "E14", "E22"], venue: "AB02-428", faculty: "PRAVEEN KUMAR TYAGI" },
+                    { id: "csa4002_11", slots: ["B22", "B24", "F21"], venue: "AB02-452", faculty: "MANOJ KUMAR" },
+                    { id: "csa4002_12", slots: ["C11", "C12", "C13"], venue: "AB02-455", faculty: "NEERAJ SAHU" },
+                    { id: "csa4002_13", slots: ["C11", "C12", "C13"], venue: "AB02-454", faculty: "SATYABRATA NATH" },
+                    { id: "csa4002_14", slots: ["C14", "E11", "E12"], venue: "AB02-451", faculty: "VIKAS PAL VEELON" },
+                    { id: "csa4002_15", slots: ["C21", "F11", "F12"], venue: "AB02-4F-T1", faculty: "KANNAIYA RAJAN" },
+                    { id: "csa4002_16", slots: ["C21", "F11", "F12"], venue: "AB02-455", faculty: "NEERAJ SAHU" }
+                ]
+            },
+            {
+                code: "CSA3006",
+                title: "Data Mining and Data Warehousing",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csa3006_1", slots: ["A11", "A12", "A13"], venue: "AB02-421", faculty: "NILAMADHAB MISHRA" },
+                    { id: "csa3006_2", slots: ["A11", "A12", "A13"], venue: "AB02-3F-T1", faculty: "ABHA SHARMA" },
+                    { id: "csa3006_3", slots: ["A11", "A12", "A13"], venue: "AB02-420", faculty: "HARSHLATA VISHWAKARMA" },
+                    { id: "csa3006_4", slots: ["A11", "A12", "A13"], venue: "AB02-419", faculty: "RAM KUMAR" },
+                    { id: "csa3006_5", slots: ["A14", "D11", "D12"], venue: "AB02-419", faculty: "RIZWAN UR RAHMAN" },
+                    { id: "csa3006_6", slots: ["A14", "D11", "D12"], venue: "AB02-418", faculty: "RAM KUMAR" },
+                    { id: "csa3006_7", slots: ["B11", "B12", "B13"], venue: "AB02-419", faculty: "RIZWAN UR RAHMAN" },
+                    { id: "csa3006_8", slots: ["B11", "B12", "B13"], venue: "AB02-417", faculty: "GR HEMALAKSHMI" },
+                    { id: "csa3006_9", slots: ["B21", "E14", "E22"], venue: "AB02-421", faculty: "GR HEMALAKSHMI" },
+                    { id: "csa3006_10", slots: ["C11", "C12", "C13"], venue: "AB02-428", faculty: "ABHA SHARMA" },
+                    { id: "csa3006_11", slots: ["C11", "C12", "C13"], venue: "AB02-423", faculty: "HARSHLATA VISHWAKARMA" },
+                    { id: "csa3006_12", slots: ["C14", "E11", "E12"], venue: "AB02-423", faculty: "NILAMADHAB MISHRA" }
+                ]
+            },
+            {
+                code: "CSA4008",
+                title: "Applied Machine Learning",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csa4008_1", slots: ["A11", "A12", "A13"], venue: "AB02-423", faculty: "ABHISHEK KUMAR SHUKLA" },
+                    { id: "csa4008_2", slots: ["A11", "A12", "A13"], venue: "AB02-422", faculty: "ANTIMA JAIN" },
+                    { id: "csa4008_3", slots: ["A14", "D11", "D12"], venue: "AB02-428", faculty: "ANIL KUMAR YADAV" },
+                    { id: "csa4008_4", slots: ["A14", "D11", "D12"], venue: "AB02-422", faculty: "ABHISHEK KUMAR SHUKLA" },
+                    { id: "csa4008_5", slots: ["A21", "A22", "A23"], venue: "AB02-452", faculty: "LOKESH MALVIYA" },
+                    { id: "csa4008_6", slots: ["A24", "E21", "F22"], venue: "AB02-423", faculty: "ANJALI MATHUR" },
+                    { id: "csa4008_7", slots: ["B11", "B12", "B13"], venue: "AB02-422", faculty: "ANIL KUMAR YADAV" },
+                    { id: "csa4008_8", slots: ["B11", "B12", "B13"], venue: "AB02-421", faculty: "I. JASMINE SELVAKUMARI JEYA" },
+                    { id: "csa4008_9", slots: ["B11", "B12", "B13"], venue: "AB02-420", faculty: "PRISCILLA DINKAR MOYYA" },
+                    { id: "csa4008_10", slots: ["B14", "B23", "D21"], venue: "AB02-429", faculty: "I. JASMINE SELVAKUMARI JEYA" },
+                    { id: "csa4008_11", slots: ["B21", "E14", "E22"], venue: "AB02-422", faculty: "ANJALI MATHUR" },
+                    { id: "csa4008_12", slots: ["C11", "C12", "C13"], venue: "AB02-453", faculty: "ABHISHEK KUMAR SHUKLA" },
+                    { id: "csa4008_13", slots: ["C11", "C12", "C13"], venue: "AB02-452", faculty: "ANJALI MATHUR" },
+                    { id: "csa4008_14", slots: ["C11", "C12", "C13"], venue: "AB02-451", faculty: "CHOUR SINGH RAJPOOT" },
+                    { id: "csa4008_15", slots: ["C11", "C12", "C13"], venue: "AB02-317", faculty: "ANTIMA JAIN" }
+                ]
+            },
+            {
+                code: "CSA3007",
+                title: "Deep Learning",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csa3007_1", slots: ["A14", "D11", "D12"], venue: "AB02-420", faculty: "GUNJAN ANSARI" },
+                    { id: "csa3007_2", slots: ["A21", "A22", "A23"], venue: "AB02-451", faculty: "SIDDHARTH SINGH CHOUHAN" },
+                    { id: "csa3007_3", slots: ["A21", "A22", "A23"], venue: "AB02-429", faculty: "MANORMA CHOUHAN" },
+                    { id: "csa3007_4", slots: ["A21", "A22", "A23"], venue: "AB02-428", faculty: "AJAY SHARMA" },
+                    { id: "csa3007_5", slots: ["A21", "A22", "A23"], venue: "AB02-423", faculty: "VIJENDRA" },
+                    { id: "csa3007_6", slots: ["A21", "A22", "A23"], venue: "AB02-422", faculty: "PRAKASH NB" },
+                    { id: "csa3007_7", slots: ["A24", "E21", "F22"], venue: "AB02-422", faculty: "RAGHAVENDRA MISHRA" },
+                    { id: "csa3007_8", slots: ["A24", "E21", "F22"], venue: "AB02-421", faculty: "SATYENDRA SINGH" },
+                    { id: "csa3007_9", slots: ["B14", "B23", "D21"], venue: "AB02-428", faculty: "D. LAKSHMI" },
+                    { id: "csa3007_10", slots: ["B22", "B24", "F21"], venue: "AB02-451", faculty: "SATYENDRA SINGH" },
+                    { id: "csa3007_11", slots: ["C11", "C12", "C13"], venue: "AB02-429", faculty: "SUNEET JOSHI" },
+                    { id: "csa3007_12", slots: ["C14", "E11", "E12"], venue: "AB02-429", faculty: "D. LAKSHMI" },
+                    { id: "csa3007_13", slots: ["C14", "E11", "E12"], venue: "AB02-428", faculty: "PRAVEEN KUMAR TYAGI" },
+                    { id: "csa3007_14", slots: ["C21", "F11", "F12"], venue: "AB02-454", faculty: "RAGHAVENDRA MISHRA" }
+                ]
+            },
+            {
+                code: "CSA4028",
+                title: "Natural Language Processing",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "csa4028_1", slots: ["A14", "D11", "D12"], venue: "AB02-417", faculty: "NEERAJ SHARMA" },
+                    { id: "csa4028_2", slots: ["A21", "A22", "A23"], venue: "AB02-421", faculty: "NEERAJ SHARMA" },
+                    { id: "csa4028_3", slots: ["A24", "E21", "F22"], venue: "AB02-420", faculty: "VIJENDRA" },
+                    { id: "csa4028_4", slots: ["A24", "E21", "F22"], venue: "AB02-419", faculty: "VIPIN JAIN" },
+                    { id: "csa4028_5", slots: ["B11", "B12", "B13"], venue: "AB02-416", faculty: "ANKUR JAIN" },
+                    { id: "csa4028_6", slots: ["B11", "B12", "B13"], venue: "AB02-415", faculty: "NEERAJ SHARMA" },
+                    { id: "csa4028_7", slots: ["B14", "B23", "D21"], venue: "AB02-422", faculty: "VIJENDRA" },
+                    { id: "csa4028_8", slots: ["B14", "B23", "D21"], venue: "AB02-421", faculty: "VIPIN JAIN" },
+                    { id: "csa4028_9", slots: ["C14", "E11", "E12"], venue: "AB02-422", faculty: "ANKUR JAIN" },
+                    { id: "csa4028_10", slots: ["C14", "E11", "E12"], venue: "AB02-419", faculty: "RAJNEESH KUMAR PATEL" },
+                    { id: "csa4028_11", slots: ["C21", "F11", "F12"], venue: "AB02-453", faculty: "SATYENDRA SINGH" },
+                    { id: "csa4028_12", slots: ["C21", "F11", "F12"], venue: "AB02-452", faculty: "BUBAI MANNA" }
+                ]
+            },
+            {
+                code: "CSE3016",
+                title: "AWS Solution Architect",
+                credits: 3,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "cse3016_1", slots: ["A11", "A12", "A13"], venue: "AB02-220", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_2", slots: ["A11", "A12", "A13"], venue: "AB02-020", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_3", slots: ["A14", "D11", "D12"], venue: "AB02-453", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_4", slots: ["A14", "D11", "D12"], venue: "AB02-224", faculty: "ETHNUS TRAINER 8" },
+                    { id: "cse3016_5", slots: ["A14", "D11", "D12"], venue: "AB02-017", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_6", slots: ["A21", "A22", "A23"], venue: "AB02-216", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_7", slots: ["A21", "A22", "A23"], venue: "AB02-116", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_8", slots: ["A24", "E21", "F22"], venue: "AB02-104", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_9", slots: ["A24", "E21", "F22"], venue: "AB02-324", faculty: "ETHNUS TRAINER 8" },
+                    { id: "cse3016_10", slots: ["A24", "E21", "F22"], venue: "AB02-221", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_11", slots: ["B11", "B12", "B13"], venue: "AB02-418", faculty: "ETHNUS TRAINER 8" },
+                    { id: "cse3016_12", slots: ["B11", "B12", "B13"], venue: "AB02-222", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_13", slots: ["B11", "B12", "B13"], venue: "AB02-119", faculty: "ETHNUS TRAINER 5" },
+                    { id: "cse3016_14", slots: ["B14", "B23", "D21"], venue: "AB02-117", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_15", slots: ["B14", "B23", "D21"], venue: "AB02-220", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_16", slots: ["B21", "E14", "E22"], venue: "AB02-203", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_17", slots: ["B21", "E14", "E22"], venue: "AB02-221", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_18", slots: ["B22", "B24", "F21"], venue: "AB02-204", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_19", slots: ["B22", "B24", "F21"], venue: "AB02-221", faculty: "ETHNUS TRAINER 8" },
+                    { id: "cse3016_20", slots: ["C11", "C12", "C13"], venue: "AB02-217", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_21", slots: ["C11", "C12", "C13"], venue: "AB02-224", faculty: "ETHNUS TRAINER 4" },
+                    { id: "cse3016_22", slots: ["C14", "E11", "E12"], venue: "AB02-203", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_23", slots: ["C14", "E11", "E12"], venue: "AB02-421", faculty: "ETHNUS TRAINER 8" },
+                    { id: "cse3016_24", slots: ["C14", "E11", "E12"], venue: "AB02-301", faculty: "ETHNUS_TRAINER 4" },
+                    { id: "cse3016_25", slots: ["C21", "F11", "F12"], venue: "AB02-203", faculty: "ETHNUS TRAINER 7" },
+                    { id: "cse3016_26", slots: ["C21", "F11", "F12"], venue: "AB02-303", faculty: "ETHNUS TRAINER 6" },
+                    { id: "cse3016_27", slots: ["C21", "F11", "F12"], venue: "AB02-304", faculty: "ETHNUS TRAINER 8" }
+                ]
+            },
+            {
+                code: "MAT2005",
+                title: "Transform Techniques and Difference Equations",
+                credits: 3,
+                type: "Theory",
+                owner: "SASL",
+                options: [
+                    { id: "m2005_1", slots: ["A11", "A12"], venue: "LC-104", faculty: "VINOD KUMAR JATAV" },
+                    { id: "m2005_2", slots: ["A11", "A12"], venue: "LC-103", faculty: "DEVANAND" },
+                    { id: "m2005_3", slots: ["A11", "A12"], venue: "CR-025", faculty: "SURENDER KUMAR" },
+                    { id: "m2005_4", slots: ["A11", "A12"], venue: "LC-204", faculty: "SALMAN ZAHEER" },
+                    { id: "m2005_5", slots: ["A11", "A12"], venue: "LC-201", faculty: "KIRAN KUMAR BEHERA" },
+                    { id: "m2005_6", slots: ["A14", "D11"], venue: "LC-206", faculty: "JUHI KESARWANI" },
+                    { id: "m2005_7", slots: ["A21", "A22"], venue: "LC-002", faculty: "SONJOY PAN" },
+                    { id: "m2005_8", slots: ["A21", "A22"], venue: "LC-102", faculty: "SK NOORJAHAN" },
+                    { id: "m2005_9", slots: ["A21", "A22"], venue: "LC-204", faculty: "K. RANGARAJAN" },
+                    { id: "m2005_10", slots: ["A21", "A22"], venue: "LC-003", faculty: "NAVNEET KUMAR VERMA" },
+                    { id: "m2005_11", slots: ["A21", "A23"], venue: "LC-206", faculty: "BHUMIKA CHOKSI" },
+                    { id: "m2005_12", slots: ["A21", "A23"], venue: "CR-003", faculty: "PALAS MANDAL" },
+                    { id: "m2005_13", slots: ["B11", "B12"], venue: "LC-101", faculty: "NAVNEET KUMAR VERMA" },
+                    { id: "m2005_14", slots: ["B11", "B12"], venue: "LC-006", faculty: "BENEVATHO JAISON A" },
+                    { id: "m2005_15", slots: ["B11", "B12"], venue: "LC-002", faculty: "HEMANT KUMAR NASHINE" },
+                    { id: "m2005_16", slots: ["B11", "B12"], venue: "LC-104", faculty: "ZAHEER KAREEM ANSARI" },
+                    { id: "m2005_17", slots: ["B11", "B12"], venue: "LC-005", faculty: "GOBINDA GHOSH" },
+                    { id: "m2005_18", slots: ["B14", "D21"], venue: "LC-101", faculty: "BHUMIKA CHOKSI" },
+                    { id: "m2005_19", slots: ["B14", "D21"], venue: "LC-006", faculty: "ABHISHEKH" },
+                    { id: "m2005_20", slots: ["B14", "D21"], venue: "LC-002", faculty: "PALAS MANDAL" },
+                    { id: "m2005_21", slots: ["B14", "D21"], venue: "LC-005", faculty: "CLEMENT JOHNSON R" },
+                    { id: "m2005_22", slots: ["B14", "D21"], venue: "LC-207", faculty: "NIYAZ AHMED L" },
+                    { id: "m2005_23", slots: ["B21", "E14"], venue: "LC-006", faculty: "BENEVATHO JAISON A" },
+                    { id: "m2005_24", slots: ["B21", "E14"], venue: "LC-202", faculty: "RANJITHA" },
+                    { id: "m2005_25", slots: ["B22", "F21"], venue: "LC-003", faculty: "ASHISH KUMAR KESARWANI" },
+                    { id: "m2005_26", slots: ["C11", "C12"], venue: "LC-004", faculty: "PAVAN KUMAR" },
+                    { id: "m2005_27", slots: ["C11", "C12"], venue: "LC-201", faculty: "VINOD KUMAR JATAV" },
+                    { id: "m2005_28", slots: ["C11", "C12"], venue: "LC-005", faculty: "ABHISHEKH" },
+                    { id: "m2005_29", slots: ["C11", "C12"], venue: "LC-006", faculty: "MOSTAID AHMED" },
+                    { id: "m2005_30", slots: ["C11", "C12"], venue: "LC-003", faculty: "DEVANAND" },
+                    { id: "m2005_31", slots: ["C11", "C12"], venue: "LC-002", faculty: "PAUL D" },
+                    { id: "m2005_32", slots: ["D11", "D12"], venue: "LC-204", faculty: "ANKIT PAL" },
+                    { id: "m2005_33", slots: ["D11", "D12"], venue: "LC-005", faculty: "SURENDER KUMAR" },
+                    { id: "m2005_34", slots: ["D11", "D12"], venue: "LC-201", faculty: "KIRAN KUMAR BEHERA" },
+                    { id: "m2005_35", slots: ["E11", "E12"], venue: "LC-207", faculty: "CLEMENT JOHNSON R" },
+                    { id: "m2005_36", slots: ["E11", "E12"], venue: "LC-104", faculty: "AKSHARA MAKRARIYA" },
+                    { id: "m2005_37", slots: ["E11", "E12"], venue: "LC-006", faculty: "PAVAN KUMAR" },
+                    { id: "m2005_38", slots: ["E11", "E12"], venue: "LC-002", faculty: "MOSTAID AHMED" },
+                    { id: "m2005_39", slots: ["E11", "E12"], venue: "CR-026", faculty: "VINOD KUMAR JATAV" },
+                    { id: "m2005_40", slots: ["E14", "E22"], venue: "LC-103", faculty: "SONJOY PAN" },
+                    { id: "m2005_41", slots: ["F11", "F12"], venue: "LC-201", faculty: "NAVNEET KUMAR VERMA" },
+                    { id: "m2005_42", slots: ["F11", "F12"], venue: "LC-101", faculty: "ANKIT PAL" },
+                    { id: "m2005_43", slots: ["F11", "F12"], venue: "LC-006", faculty: "JUHI KESARWANI" },
+                    { id: "m2005_44", slots: ["F11", "F12"], venue: "LC-204", faculty: "GOBINDA GHOSH" },
+                    { id: "m2005_45", slots: ["F11", "F12"], venue: "LC-102", faculty: "SALMAN ZAHEER" }
+                ]
+            },
+            {
+                code: "MAT2003",
+                title: "Applied Numerical Method",
+                credits: 3,
+                type: "Theory",
+                owner: "SASL",
+                options: [
+                    { id: "m2003_1", slots: ["A11", "A12"], venue: "CR-013", faculty: "SUCHISMITA PATRA" },
+                    { id: "m2003_2", slots: ["A11", "A12"], venue: "CR-014", faculty: "ARUNA J" },
+                    { id: "m2003_3", slots: ["A14", "D11"], venue: "CR-029", faculty: "DIP MUKHERJEE" },
+                    { id: "m2003_4", slots: ["A21", "A22"], venue: "CR-016", faculty: "HARISH CHANDRA" },
+                    { id: "m2003_5", slots: ["A21", "A22"], venue: "CR-022", faculty: "DIP MUKHERJEE" },
+                    { id: "m2003_6", slots: ["A21", "A23"], venue: "CR-017", faculty: "ENAGANDULA PRASAD" },
+                    { id: "m2003_7", slots: ["A24", "E21"], venue: "CR-033", faculty: "DILEEP KUMAR" },
+                    { id: "m2003_8", slots: ["A24", "E21"], venue: "CR-032", faculty: "ENAGANDULA PRASAD" },
+                    { id: "m2003_9", slots: ["B11", "B12"], venue: "AB-103", faculty: "MAYANK SHARMA" },
+                    { id: "m2003_10", slots: ["B11", "B12"], venue: "CR-022", faculty: "HARISH CHANDRA" },
+                    { id: "m2003_11", slots: ["B11", "B12"], venue: "CR-019", faculty: "DONDU HARISH BABU" },
+                    { id: "m2003_12", slots: ["B14", "B23"], venue: "CR-024", faculty: "ANUPAM SEN" },
+                    { id: "m2003_13", slots: ["B14", "D21"], venue: "CR-033", faculty: "ANIL KUMAR SHUKLA" },
+                    { id: "m2003_14", slots: ["B14", "D21"], venue: "CR-032", faculty: "DILEEP KUMAR" },
+                    { id: "m2003_15", slots: ["B21", "E14"], venue: "CR-022", faculty: "PRASHANT KUMAR PANDEY" },
+                    { id: "m2003_16", slots: ["B21", "E14"], venue: "CR-021", faculty: "MUNIYAPPAN M" },
+                    { id: "m2003_17", slots: ["B21", "E14"], venue: "CR-024", faculty: "ANKIT FARKYA" },
+                    { id: "m2003_18", slots: ["B22", "B24"], venue: "CR-019", faculty: "DHARMALINGAM M" },
+                    { id: "m2003_19", slots: ["B22", "F21"], venue: "CR-014", faculty: "SANTOSH KUMAR BHAL" },
+                    { id: "m2003_20", slots: ["B23", "D21"], venue: "CR-019", faculty: "SUPRIYA KUMAR PAUL" },
+                    { id: "m2003_21", slots: ["C11", "C12"], venue: "CR-013", faculty: "ANIL KUMAR SHUKLA" },
+                    { id: "m2003_22", slots: ["C11", "C12"], venue: "CR-028", faculty: "PRASHANT KUMAR PANDEY" },
+                    { id: "m2003_23", slots: ["C11", "C12"], venue: "CR-025", faculty: "ANUPAM SEN" },
+                    { id: "m2003_24", slots: ["C11", "C12"], venue: "CR-027", faculty: "SANTOSH KUMAR BHAL" },
+                    { id: "m2003_25", slots: ["D11", "D12"], venue: "CR-014", faculty: "HEMANTA KALITA" },
+                    { id: "m2003_26", slots: ["D11", "D12"], venue: "CR-020", faculty: "THILAGAVATHI A" },
+                    { id: "m2003_27", slots: ["E11", "E12"], venue: "CR-018", faculty: "ANANT KANT SHUKLA" },
+                    { id: "m2003_28", slots: ["E11", "E12"], venue: "CR-012", faculty: "DONDU HARISH BABU" },
+                    { id: "m2003_29", slots: ["E11", "E12"], venue: "CR-021", faculty: "EZHILARASAN P" },
+                    { id: "m2003_30", slots: ["F11", "F12"], venue: "CR-014", faculty: "MAYANK SHARMA" },
+                    { id: "m2003_31", slots: ["F11", "F12"], venue: "CR-018", faculty: "SUCHISMITA PATRA" },
+                    { id: "m2003_32", slots: ["F11", "F12"], venue: "CR-013", faculty: "HEMANTA KALITA" },
+                    { id: "m2003_33", slots: ["F11", "F12"], venue: "CR-015", faculty: "GIRIJA P" }
+                ]
+            },
+            {
+                code: "MGT2003",
+                title: "Technology Entrepreneurship",
+                credits: 3,
+                type: "Theory",
+                owner: "ACAD",
+                options: [
+                    { id: "mgt1", slots: ["A11", "A12"], venue: "CR-023", faculty: "KINJAL" },
+                    { id: "mgt2", slots: ["A14", "B14"], venue: "CR-027", faculty: "IMROZ" },
+                    { id: "mgt3", slots: ["A14", "B14"], venue: "CR-012", faculty: "PANKAJ KUMAR JHA" },
+                    { id: "mgt4", slots: ["B11", "B12"], venue: "CR-028", faculty: "BHAKTI PARASHAR" },
+                    { id: "mgt5", slots: ["B11", "B12"], venue: "CR-015", faculty: "VIT-BS-NF-1" },
+                    { id: "mgt6", slots: ["B11", "B12"], venue: "CR-026", faculty: "MANISHA SINGH" },
+                    { id: "mgt7", slots: ["B21", "B22"], venue: "CR-028", faculty: "ABHISHEK RAJ" },
+                    { id: "mgt8", slots: ["B21", "B22"], venue: "CR-033", faculty: "R. ABISHEK ISRAEL" },
+                    { id: "mgt9", slots: ["C11", "C12"], venue: "CR-017", faculty: "PANKAJ KUMAR" },
+                    { id: "mgt10", slots: ["C11", "C13"], venue: "CR-014", faculty: "RAJENDRA MAHANANDIA" },
+                    { id: "mgt11", slots: ["D11", "D12"], venue: "CR-023", faculty: "RAJENDRA MAHANANDIA" },
+                    { id: "mgt12", slots: ["E11", "E12"], venue: "CR-025", faculty: "KAVITHA RAJAYOGAN" },
+                    { id: "mgt13", slots: ["E14", "F14"], venue: "CR-030", faculty: "KAVITHA RAJAYOGAN" },
+                    { id: "mgt14", slots: ["E21", "E22"], venue: "CR-029", faculty: "PANKAJ KUMAR JHA" },
+                    { id: "mgt15", slots: ["E21", "E22"], venue: "CR-018", faculty: "R. ABISHEK ISRAEL" },
+                    { id: "mgt16", slots: ["F11", "F12"], venue: "CR-028", faculty: "MANISHA SINGH" }
+                ]
+            },
+            {
+                code: "PLA1006",
+                title: "Lateral Thinking",
+                credits: 2,
+                type: "Theory",
+                owner: "ACAD",
+                options: [
+                    { id: "pla1", slots: ["A11"], venue: "AB02-104", faculty: "SMART TRAINER 2" },
+                    { id: "pla2", slots: ["A11"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla3", slots: ["A12"], venue: "AB02-104", faculty: "PAT TRAINER" },
+                    { id: "pla4", slots: ["A12"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla5", slots: ["A13"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla6", slots: ["A13"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla7", slots: ["A14"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla8", slots: ["A21"], venue: "AB02-117", faculty: "PAT TRAINER" },
+                    { id: "pla9", slots: ["A22"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla10", slots: ["A23"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla11", slots: ["A24"], venue: "AB02-103", faculty: "SMART TRAINER 2" },
+                    { id: "pla12", slots: ["B11"], venue: "AB02-104", faculty: "SMART TRAINER 2" },
+                    { id: "pla13", slots: ["B11"], venue: "AB02-116", faculty: "SMART TRAINER 1" },
+                    { id: "pla14", slots: ["B12"], venue: "AB02-104", faculty: "SMART TRAINER 1" },
+                    { id: "pla15", slots: ["B12"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla16", slots: ["B13"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla17", slots: ["B13"], venue: "AB02-103", faculty: "SMART TRAINER 2" },
+                    { id: "pla18", slots: ["B14"], venue: "AB02-103", faculty: "SMART TRAINER 2" },
+                    { id: "pla19", slots: ["B21"], venue: "AB02-103", faculty: "SMART TRAINER 1" },
+                    { id: "pla20", slots: ["B22"], venue: "AB02-103", faculty: "SMART TRAINER 2" },
+                    { id: "pla21", slots: ["B23"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla22", slots: ["B24"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla45", slots: ["C11"], venue: "AB02-104", faculty: "SMART TRAINER 1" },
+                    { id: "pla23", slots: ["C11"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla24", slots: ["C12"], venue: "AB02-104", faculty: "SMART TRAINER 1" },
+                    { id: "pla25", slots: ["C12"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla26", slots: ["C13"], venue: "AB02-102", faculty: "SMART TRAINER 2" },
+                    { id: "pla27", slots: ["C13"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla28", slots: ["C14"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla29", slots: ["C21"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla30", slots: ["D11"], venue: "AB02-104", faculty: "SMART TRAINER 2" },
+                    { id: "pla31", slots: ["D11"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla32", slots: ["D12"], venue: "AB02-104", faculty: "PAT TRAINER" },
+                    { id: "pla33", slots: ["D12"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla34", slots: ["D21"], venue: "AB02-103", faculty: "SMART TRAINER 1" },
+                    { id: "pla35", slots: ["E11"], venue: "AB02-104", faculty: "SMART TRAINER 2" },
+                    { id: "pla36", slots: ["E11"], venue: "AB02-116", faculty: "SMART TRAINER 1" },
+                    { id: "pla37", slots: ["E12"], venue: "AB02-116", faculty: "PAT TRAINER" },
+                    { id: "pla38", slots: ["E14"], venue: "AB02-103", faculty: "SMART TRAINER 1" },
+                    { id: "pla39", slots: ["E21"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla40", slots: ["E22"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla41", slots: ["F11"], venue: "AB02-103", faculty: "SMART TRAINER 2" },
+                    { id: "pla42", slots: ["F12"], venue: "AB02-103", faculty: "PAT TRAINER" },
+                    { id: "pla43", slots: ["F21"], venue: "AB02-102", faculty: "PAT TRAINER" },
+                    { id: "pla44", slots: ["F22"], venue: "AB02-103", faculty: "PAT TRAINER" }
+                ]
+            },
+            {
+                code: "DSN2099",
+                title: "Project Exhibition - II",
+                slotBased: false,
+                credits: 1,
+                type: "Project",
+                owner: "ACAD",
+                options: [
+                    { id: "dsn1", slots: ["NIL"], venue: "NIL", faculty: "PRASHANT GK" },
+                    { id: "dsn2", slots: ["NIL"], venue: "NIL", faculty: "SIDDHARTHA MAITI" },
+                    { id: "dsn3", slots: ["NIL"], venue: "NIL", faculty: "VIKAS PANTHI" },
+                    { id: "dsn4", slots: ["NIL"], venue: "NIL", faculty: "JITENDRA PRATAP SINGH MATHUR" },
+                    { id: "dsn5", slots: ["NIL"], venue: "NIL", faculty: "SHAHANA GAJALA QURESHI" },
+                    { id: "dsn6", slots: ["NIL"], venue: "NIL", faculty: "ANJU SHUKLA" },
+                    { id: "dsn7", slots: ["NIL"], venue: "NIL", faculty: "GUNJAN ANSARI" },
+                    { id: "dsn8", slots: ["NIL"], venue: "NIL", faculty: "ABHA TRIVEDI" },
+                    { id: "dsn9", slots: ["NIL"], venue: "NIL", faculty: "MANOJ KUMAR" },
+                    { id: "dsn10", slots: ["NIL"], venue: "NIL", faculty: "MURUGESWARI K" },
+                    { id: "dsn11", slots: ["NIL"], venue: "NIL", faculty: "V. SIVASANKARAN" },
+                    { id: "dsn12", slots: ["NIL"], venue: "NIL", faculty: "SOUMITRA KESHARI NAYAK" },
+                    { id: "dsn13", slots: ["NIL"], venue: "NIL", faculty: "ROHIT SHARMA" },
+                    { id: "dsn14", slots: ["NIL"], venue: "NIL", faculty: "SHIV MANJAREE GOPALIYA" },
+                    { id: "dsn15", slots: ["NIL"], venue: "NIL", faculty: "T. VENKATESWARA RAO" },
+                    { id: "dsn16", slots: ["NIL"], venue: "NIL", faculty: "S. PERIYANAYAGI" },
+                    { id: "dsn17", slots: ["NIL"], venue: "NIL", faculty: "PRISCILLA DINKAR MOYYA" },
+                    { id: "dsn18", slots: ["NIL"], venue: "NIL", faculty: "SUMIT MITTAL" }
+                ]
+            },
+            {
+                code: "MAT3002",
+                title: "Applied Linear Algebra",
+                credits: 3,
+                type: "Theory",
+                owner: "SASL",
+                options: [
+                    { id: "mat3002_1", slots: ["A11", "A12"], venue: "CR-011", faculty: "SAURABH KUMAR MAURYA" },
+                    { id: "mat3002_2", slots: ["A21", "A22"], venue: "CR-015", faculty: "AJAY KUMAR BHURJEE" },
+                    { id: "mat3002_3", slots: ["A21", "A22"], venue: "AB-127", faculty: "SUMAN MAITI" },
+                    { id: "mat3002_4", slots: ["A24", "E21"], venue: "CR-003", faculty: "SUMAN MAITI" },
+                    { id: "mat3002_5", slots: ["B11", "B12"], venue: "CR-012", faculty: "ANANT KANT SHUKLA" },
+                    { id: "mat3002_6", slots: ["B11", "B12"], venue: "AB-117", faculty: "ABHISHEK" },
+                    { id: "mat3002_7", slots: ["B14", "D21"], venue: "CR-007", faculty: "AJAY KUMAR BHURJEE" },
+                    { id: "mat3002_8", slots: ["B21", "E22"], venue: "CR-023", faculty: "PRIYANKA" },
+                    { id: "mat3002_9", slots: ["B22", "F21"], venue: "CR-013", faculty: "ABHISHEK" },
+                    { id: "mat3002_10", slots: ["C11", "C12"], venue: "CR-011", faculty: "KUMAR ABHISHEK" },
+                    { id: "mat3002_11", slots: ["C11", "C12"], venue: "CR-012", faculty: "ADNAN ABBASI" },
+                    { id: "mat3002_12", slots: ["D11", "D12"], venue: "CR-006", faculty: "SAURABH KUMAR MAURYA" },
+                    { id: "mat3002_13", slots: ["E11", "E12"], venue: "CR-011", faculty: "ADNAN ABBASI" },
+                    { id: "mat3002_14", slots: ["F11", "F12"], venue: "CR-006", faculty: "KUMAR ABHISHEK" }
+                ]
+            },
+            {
+                code: "MAT3003",
+                title: "Probability, Statistics and Reliability",
+                credits: 4,
+                type: "Theory",
+                owner: "SASL",
+                options: [
+                    { id: "mat3003_1", slots: ["A11", "A12", "A13"], venue: "AB02-201", faculty: "MANISHA JAIN" },
+                    { id: "mat3003_2", slots: ["A11", "A12", "A13"], venue: "AB02-203", faculty: "HEMANTA KALITA" },
+                    { id: "mat3003_3", slots: ["A11", "A12", "A13"], venue: "AB02-204", faculty: "ADNAN ABBASI" },
+                    { id: "mat3003_4", slots: ["A11", "A12", "A13"], venue: "AB02-217", faculty: "SHAKILA C.V" },
+                    { id: "mat3003_5", slots: ["A11", "A12", "A13"], venue: "CR-029", faculty: "THILAGAVATHI A" },
+                    { id: "mat3003_6", slots: ["A11", "A12", "A13"], venue: "AB-126", faculty: "MAMTA AGRAWAL" },
+                    { id: "mat3003_7", slots: ["A14", "D11", "D12"], venue: "LC-103", faculty: "KUMAR ABHISHEK" },
+                    { id: "mat3003_8", slots: ["A14", "D11", "D12"], venue: "LC-104", faculty: "NILAM VENKATAKOTESWARARAO" },
+                    { id: "mat3003_9", slots: ["A14", "D11", "D12"], venue: "LC-004", faculty: "GOBINDA GHOSH" },
+                    { id: "mat3003_10", slots: ["A14", "D11", "D12"], venue: "LC-001", faculty: "VICTOR A" },
+                    { id: "mat3003_11", slots: ["A14", "D11", "D12"], venue: "LC-002", faculty: "SALMAN ZAHEER" },
+                    { id: "mat3003_12", slots: ["A14", "D11", "D12"], venue: "AB-103", faculty: "PALAS MANDAL" },
+                    { id: "mat3003_13", slots: ["A21", "A22", "A23"], venue: "LC-004", faculty: "MAYANK SHARMA" },
+                    { id: "mat3003_14", slots: ["A21", "A22", "A23"], venue: "LC-201", faculty: "NILAM VENKATAKOTESWARARAO" },
+                    { id: "mat3003_15", slots: ["A21", "A22", "A23"], venue: "CR-024", faculty: "SAURABH KUMAR MAURYA" },
+                    { id: "mat3003_16", slots: ["A21", "A22", "A23"], venue: "LC-104", faculty: "VICTOR A" },
+                    { id: "mat3003_17", slots: ["A21", "A22", "A23"], venue: "LC-103", faculty: "SUPRIYA KUMAR PAUL" },
+                    { id: "mat3003_18", slots: ["A21", "A22", "A23"], venue: "LC-101", faculty: "THILAGAVATHI A" },
+                    { id: "mat3003_19", slots: ["A21", "A22", "A23"], venue: "AB-117", faculty: "MANISHA JAIN" },
+                    { id: "mat3003_20", slots: ["A24", "E21", "F22"], venue: "LC-104", faculty: "SUPRIYA KUMAR PAUL" },
+                    { id: "mat3003_21", slots: ["A24", "E21", "F22"], venue: "LC-201", faculty: "ANIL KUMAR SHUKLA" },
+                    { id: "mat3003_22", slots: ["B11", "B12", "B13"], venue: "AB02-202", faculty: "BHUMIKA CHOKSI" },
+                    { id: "mat3003_23", slots: ["B11", "B12", "B13"], venue: "LC-201", faculty: "AKSHARA MAKRARIYA" },
+                    { id: "mat3003_24", slots: ["B11", "B12", "B13"], venue: "LC-202", faculty: "ANKIT PAL" },
+                    { id: "mat3003_25", slots: ["B11", "B12", "B13"], venue: "LC-204", faculty: "RANJITHA" },
+                    { id: "mat3003_26", slots: ["B11", "B12", "B13"], venue: "LC-102", faculty: "SK NOORJAHAN" },
+                    { id: "mat3003_27", slots: ["B11", "B12", "B13"], venue: "LC-103", faculty: "PRIYANKA" },
+                    { id: "mat3003_28", slots: ["B14", "B23", "D21"], venue: "LC-104", faculty: "SANTOSH KUMAR BHAL" },
+                    { id: "mat3003_29", slots: ["B14", "B23", "D21"], venue: "LC-204", faculty: "ENAGANDULA PRASAD" },
+                    { id: "mat3003_30", slots: ["B14", "B23", "D21"], venue: "LC-201", faculty: "PAUL D" },
+                    { id: "mat3003_31", slots: ["B14", "B23", "D21"], venue: "LC-206", faculty: "PRIYANKA" },
+                    { id: "mat3003_32", slots: ["B14", "B23", "D21"], venue: "LC-102", faculty: "ABHISHEK" },
+                    { id: "mat3003_33", slots: ["B21", "E14", "E22"], venue: "LC-002", faculty: "EZHILARASAN P" },
+                    { id: "mat3003_34", slots: ["B21", "E14", "E22"], venue: "LC-204", faculty: "DONDU HARISH BABU" },
+                    { id: "mat3003_35", slots: ["B21", "E14", "E22"], venue: "LC-201", faculty: "CLEMENT JOHNSON R" },
+                    { id: "mat3003_36", slots: ["B21", "E14", "E22"], venue: "LC-104", faculty: "DHARMALINGAM M" },
+                    { id: "mat3003_37", slots: ["B21", "E14", "E22"], venue: "LC-101", faculty: "SUMAN MAITI" },
+                    { id: "mat3003_38", slots: ["B22", "B24", "F21"], venue: "LC-006", faculty: "NIYAZ AHMED L" },
+                    { id: "mat3003_39", slots: ["B22", "B24", "F21"], venue: "LC-204", faculty: "K. RANGARAJAN" },
+                    { id: "mat3003_40", slots: ["B22", "B24", "F21"], venue: "LC-201", faculty: "ANKIT FARKYA" },
+                    { id: "mat3003_41", slots: ["C11", "C12", "C13"], venue: "LC-202", faculty: "SUCHISMITA PATRA" },
+                    { id: "mat3003_42", slots: ["C11", "C12", "C13"], venue: "LC-206", faculty: "SURENDER KUMAR" },
+                    { id: "mat3003_43", slots: ["C11", "C12", "C13"], venue: "LC-103", faculty: "NIYAZ AHMED L" },
+                    { id: "mat3003_44", slots: ["C11", "C12", "C13"], venue: "LC-104", faculty: "ANKIT FARKYA" },
+                    { id: "mat3003_45", slots: ["C11", "C12", "C13"], venue: "LC-101", faculty: "ARUNA J" },
+                    { id: "mat3003_46", slots: ["C11", "C12", "C13"], venue: "LC-204", faculty: "EZHILARASAN P" },
+                    { id: "mat3003_47", slots: ["C14", "E11", "E12"], venue: "LC-004", faculty: "PRIYANKA ROY" },
+                    { id: "mat3003_48", slots: ["C14", "E11", "E12"], venue: "LC-201", faculty: "MAMTA AGRAWAL" },
+                    { id: "mat3003_49", slots: ["C14", "E11", "E12"], venue: "LC-204", faculty: "DIP MUKHERJEE" },
+                    { id: "mat3003_50", slots: ["C14", "E11", "E12"], venue: "LC-202", faculty: "SK NOORJAHAN" },
+                    { id: "mat3003_51", slots: ["C14", "E11", "E12"], venue: "LC-103", faculty: "DEVANAND" },
+                    { id: "mat3003_52", slots: ["C14", "E11", "E12"], venue: "LC-101", faculty: "ARUNA J" },
+                    { id: "mat3003_53", slots: ["C14", "E11", "E12"], venue: "LC-005", faculty: "KIRAN KUMAR BEHERA" },
+                    { id: "mat3003_54", slots: ["C21", "F11", "F12"], venue: "LC-001", faculty: "SONJOY PAN" },
+                    { id: "mat3003_55", slots: ["C21", "F11", "F12"], venue: "LC-206", faculty: "ANUPAM SEN" },
+                    { id: "mat3003_56", slots: ["C21", "F11", "F12"], venue: "CR-025", faculty: "K. RANGARAJAN" },
+                    { id: "mat3003_57", slots: ["C21", "F11", "F12"], venue: "LC-202", faculty: "DHARMALINGAM M" }
+                ]
+            },
+            {
+                code: "CSE3003",
+                title: "Operating System",
+                credits: 4,
+                type: "Theory & Lab",
+                owner: "SCSE",
+                options: [
+                    { id: "os1", slots: ["A11", "A12", "A13"], venue: "AB02-305", faculty: "KANNAN S" },
+                    { id: "os2", slots: ["A11", "A12", "A13"], venue: "AB02-304", faculty: "NILESH KUNHARE" },
+                    { id: "os3", slots: ["A11", "A12", "A13"], venue: "AB02-454", faculty: "SUNEET JOSHI" },
+                    { id: "os4", slots: ["A11", "A12", "A13"], venue: "AB02-453", faculty: "MOHD. ISHRAT" },
+                    { id: "os5", slots: ["A14", "D11", "D12"], venue: "AB02-304", faculty: "KANNAN S" },
+                    { id: "os6", slots: ["A14", "D11", "D12"], venue: "AB02-423", faculty: "NILESH KUNHARE" },
+                    { id: "os7", slots: ["A14", "D11", "D12"], venue: "AB02-230", faculty: "DHERESH SONI" },
+                    { id: "os8", slots: ["A21", "A22", "A23"], venue: "AB02-303", faculty: "NILESH KUNHARE" },
+                    { id: "os9", slots: ["A21", "A22", "A23"], venue: "AB02-322", faculty: "DHERESH SONI" },
+                    { id: "os10", slots: ["A24", "E21", "F22"], venue: "AB02-223", faculty: "CHOUR SINGH RAJPOOT" },
+                    { id: "os11", slots: ["B11", "B12", "B13"], venue: "AB02-453", faculty: "DEVRAJ VISHNU" },
+                    { id: "os12", slots: ["B11", "B12", "B13"], venue: "AB02-452", faculty: "AMRITA PARASHAR" },
+                    { id: "os13", slots: ["B11", "B12", "B13"], venue: "AB02-451", faculty: "SANDEEP MONGA" },
+                    { id: "os14", slots: ["B21", "E14", "E22"], venue: "AB02-224", faculty: "HARIHARASITARAMAN S" },
+                    { id: "os15", slots: ["B21", "E14", "E22"], venue: "AB02-305", faculty: "MURUGESWARI K" },
+                    { id: "os16", slots: ["B21", "E14", "E22"], venue: "AB02-223", faculty: "ABHA TRIVEDI" },
+                    { id: "os17", slots: ["B21", "E14", "E22"], venue: "AB02-455", faculty: "DEVRAJ VISHNU" },
+                    { id: "os18", slots: ["B21", "E14", "E22"], venue: "AB02-454", faculty: "AMRITA PARASHAR" },
+                    { id: "os19", slots: ["B21", "E14", "E22"], venue: "AB02-453", faculty: "CHOUR SINGH RAJPOOT" },
+                    { id: "os20", slots: ["B22", "B24", "F21"], venue: "AB02-4F-T1", faculty: "RAKESH SRIVASTAVA" },
+                    { id: "os21", slots: ["C11", "C12", "C13"], venue: "AB02-222", faculty: "MURUGESWARI K" },
+                    { id: "os22", slots: ["C14", "E11", "E12"], venue: "AB02-204", faculty: "PUSHPINDER SINGH PATHEJA" },
+                    { id: "os23", slots: ["C14", "E11", "E12"], venue: "AB02-4F-T2", faculty: "SUNEET JOSHI" },
+                    { id: "os24", slots: ["C14", "E11", "E12"], venue: "AB02-4F-T1", faculty: "AMRITA PARASHAR" },
+                    { id: "os25", slots: ["C14", "E11", "E12"], venue: "AB02-455", faculty: "SANDEEP MONGA" }
+                ]
+            },
+            {
+                code: "CSE3005",
+                title: "Software Engineering",
+                credits: 4,
+                type: "Theory & Lab",
+                owner: "SCSE",
+                options: [
+                    { id: "se1", slots: ["A11", "A12", "A13"], venue: "AB02-322", faculty: "BASEERA.A" },
+                    { id: "se2", slots: ["A11", "A12", "A13"], venue: "AB02-321", faculty: "MAMTA PATANKAR" },
+                    { id: "se3", slots: ["A14", "D11", "D12"], venue: "AB02-324", faculty: "MAMTA PATANKAR" },
+                    { id: "se4", slots: ["A21", "A22", "A23"], venue: "AB02-225", faculty: "SASMITA PADHY" },
+                    { id: "se5", slots: ["A21", "A22", "A23"], venue: "AB02-223", faculty: "MOHD. ISHRAT" },
+                    { id: "se6", slots: ["A21", "A22", "A23"], venue: "AB02-305", faculty: "MITHUN SINGH AHIRWAR" },
+                    { id: "se7", slots: ["B11", "B12", "B13"], venue: "AB02-218", faculty: "AANJAN KUMAR" },
+                    { id: "se8", slots: ["B21", "E14", "E22"], venue: "AB02-225", faculty: "S. MUTHUSUNDARI" },
+                    { id: "se9", slots: ["B21", "E14", "E22"], venue: "AB02-324", faculty: "CHAYAN PAUL" },
+                    { id: "se10", slots: ["B22", "B24", "F21"], venue: "AB02-224", faculty: "S. MUTHUSUNDARI" },
+                    { id: "se11", slots: ["C11", "C12", "C13"], venue: "AB02-225", faculty: "AVR MAYURI" },
+                    { id: "se12", slots: ["C14", "E11", "E12"], venue: "AB02-323", faculty: "BASEERA.A" },
+                    { id: "se13", slots: ["C14", "E11", "E12"], venue: "AB02-225", faculty: "SASMITA PADHY" },
+                    { id: "se14", slots: ["C14", "E11", "E12"], venue: "AB02-219", faculty: "MOHD. ISHRAT" },
+                    { id: "se15", slots: ["C14", "E11", "E12"], venue: "AB02-322", faculty: "MAMTA PATANKAR" },
+                    { id: "se16", slots: ["C14", "E11", "E12"], venue: "AB02-202", faculty: "VIKAS PANTHI" },
+                    { id: "se17", slots: ["C14", "E11", "E12"], venue: "AB02-321", faculty: "MITHUN SINGH AHIRWAR" },
+                    { id: "se18", slots: ["C21", "F11", "F12"], venue: "AB02-324", faculty: "CHAYAN PAUL" }
+                ]
+            },
+            {
+                code: "CSE3004",
+                title: "Design and Analysis of Algorithms",
+                credits: 4,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "daa1", slots: ["A11", "A12", "A13"], venue: "AB02-451", faculty: "PRAVEEN LALWANI" },
+                    { id: "daa2", slots: ["A11", "A12", "A13"], venue: "AB02-429", faculty: "MANORMA CHOUHAN" },
+                    { id: "daa3", slots: ["A14", "D11", "D12"], venue: "AB02-454", faculty: "JAVED KHAN SHEIKH" },
+                    { id: "daa4", slots: ["A14", "D11", "D12"], venue: "AB02-452", faculty: "MANORMA CHOUHAN" },
+                    { id: "daa5", slots: ["A14", "D11", "D12"], venue: "AB02-429", faculty: "VIKAS PAL VEELON" },
+                    { id: "daa6", slots: ["A21", "A22", "A23"], venue: "AB02-302", faculty: "PRAVEEN LALWANI" },
+                    { id: "daa7", slots: ["A21", "A22", "A23"], venue: "AB02-321", faculty: "SHAFIUL ALOM AHMED" },
+                    { id: "daa8", slots: ["A21", "A22", "A23"], venue: "AB02-4F-T1", faculty: "ABDUL RAHMAN" },
+                    { id: "daa9", slots: ["A21", "A22", "A23"], venue: "AB02-455", faculty: "DEVENDRA KUMAR VEDI" },
+                    { id: "daa10", slots: ["A24", "E21", "F22"], venue: "AB02-452", faculty: "VINESH KUMAR" },
+                    { id: "daa11", slots: ["A24", "E21", "F22"], venue: "AB02-451", faculty: "BUBAI MANNA" },
+                    { id: "daa12", slots: ["B11", "B12", "B13"], venue: "AB02-429", faculty: "VIKAS PAL VEELON" },
+                    { id: "daa13", slots: ["B21", "E14", "E22"], venue: "AB02-452", faculty: "VIJAY BIRCHHA" },
+                    { id: "daa14", slots: ["B21", "E14", "E22"], venue: "AB02-451", faculty: "BUBAI MANNA" },
+                    { id: "daa15", slots: ["B21", "E14", "E22"], venue: "AB02-429", faculty: "ATUL ONKARRAO THAKARE" },
+                    { id: "daa16", slots: ["B21", "E14", "E22"], venue: "AB02-423", faculty: "RIZWAN UZ ZAMAN WANI" },
+                    { id: "daa17", slots: ["B22", "B24", "F21"], venue: "AB02-455", faculty: "SHAFIUL ALOM AHMED" },
+                    { id: "daa18", slots: ["B22", "B24", "F21"], venue: "AB02-454", faculty: "ATUL ONKARRAO THAKARE" },
+                    { id: "daa19", slots: ["B22", "B24", "F21"], venue: "AB02-453", faculty: "RIZWAN UZ ZAMAN WANI" },
+                    { id: "daa20", slots: ["C11", "C12", "C13"], venue: "AB02-4F-T1", faculty: "M DARSHAN TEJA" },
+                    { id: "daa21", slots: ["C14", "E11", "E12"], venue: "AB02-454", faculty: "PARAS JAIN" },
+                    { id: "daa22", slots: ["C14", "E11", "E12"], venue: "AB02-453", faculty: "JAVED KHAN SHEIKH" },
+                    { id: "daa23", slots: ["C14", "E11", "E12"], venue: "AB02-452", faculty: "VIJAY BIRCHHA" }
+                ]
+            },
+            {
+                code: "CSE2001",
+                title: "Object Oriented Programming with C++",
+                credits: 4,
+                type: "LP",
+                owner: "SCSE",
+                options: [
+                    { id: "oop1", slots: ["A11", "A12", "A13"], venue: "AB02-219", faculty: "IAMNEO 3" },
+                    { id: "oop2", slots: ["A11", "A12", "A13"], venue: "AB02-225", faculty: "IAMNEO 4" },
+                    { id: "oop3", slots: ["A11", "A12", "A13"], venue: "AB02-224", faculty: "IAMNEO 5" },
+                    { id: "oop4", slots: ["A11", "A12", "A13"], venue: "AB02-230", faculty: "IAMNEO 6" },
+                    { id: "oop5", slots: ["A11", "A12", "A13"], venue: "AB02-231", faculty: "IAMNEO 7" },
+                    { id: "oop6", slots: ["A11", "A12", "A13"], venue: "AB02-223", faculty: "IAMNEO 8" },
+                    { id: "oop7", slots: ["A14", "D11", "D12"], venue: "AB02-2F-T2", faculty: "IAMNEO 3" },
+                    { id: "oop8", slots: ["A14", "D11", "D12"], venue: "AB02-222", faculty: "IAMNEO 4" },
+                    { id: "oop9", slots: ["A14", "D11", "D12"], venue: "AB02-220", faculty: "IAMNEO 5" },
+                    { id: "oop10", slots: ["A14", "D11", "D12"], venue: "AB02-221", faculty: "IAMNEO 6" },
+                    { id: "oop11", slots: ["A14", "D11", "D12"], venue: "AB02-216", faculty: "IAMNEO 7" },
+                    { id: "oop12", slots: ["A14", "D11", "D12"], venue: "AB02-206", faculty: "IAMNEO 8" },
+                    { id: "oop13", slots: ["A21", "A22", "A23"], venue: "AB02-104", faculty: "IAMNEO 3" },
+                    { id: "oop14", slots: ["A21", "A22", "A23"], venue: "AB02-206", faculty: "IAMNEO 4" },
+                    { id: "oop15", slots: ["A21", "A22", "A23"], venue: "AB02-219", faculty: "IAMNEO 5" },
+                    { id: "oop16", slots: ["A21", "A22", "A23"], venue: "AB02-220", faculty: "IAMNEO 6" },
+                    { id: "oop17", slots: ["A21", "A22", "A23"], venue: "AB02-222", faculty: "IAMNEO 7" },
+                    { id: "oop18", slots: ["A21", "A22", "A23"], venue: "AB02-224", faculty: "IAMNEO 8" },
+                    { id: "oop19", slots: ["A24", "E21", "F22"], venue: "AB02-216", faculty: "IAMNEO 3" },
+                    { id: "oop20", slots: ["A24", "E21", "F22"], venue: "AB02-202", faculty: "IAMNEO 4" },
+                    { id: "oop21", slots: ["A24", "E21", "F22"], venue: "AB02-222", faculty: "IAMNEO 5" },
+                    { id: "oop22", slots: ["A24", "E21", "F22"], venue: "AB02-219", faculty: "IAMNEO 6" },
+                    { id: "oop23", slots: ["A24", "E21", "F22"], venue: "AB02-218", faculty: "IAMNEO 7" },
+                    { id: "oop24", slots: ["B11", "B12", "B13"], venue: "AB02-117", faculty: "IAMNEO 4" },
+                    { id: "oop25", slots: ["B11", "B12", "B13"], venue: "AB02-206", faculty: "IAMNEO 5" },
+                    { id: "oop26", slots: ["B11", "B12", "B13"], venue: "AB02-305", faculty: "IAMNEO 9" },
+                    { id: "oop27", slots: ["B11", "B12", "B13"], venue: "AB02-221", faculty: "IAMNEO 5" },
+                    { id: "oop28", slots: ["B11", "B12", "B13"], venue: "AB02-216", faculty: "IAMNEO 6" },
+                    { id: "oop29", slots: ["B11", "B12", "B13"], venue: "AB02-224", faculty: "IAMNEO 7" },
+                    { id: "oop30", slots: ["B14", "B23", "D21"], venue: "AB02-020", faculty: "IAMNEO 4" },
+                    { id: "oop31", slots: ["B14", "B23", "D21"], venue: "AB02-206", faculty: "IAMNEO 5" },
+                    { id: "oop32", slots: ["B14", "B23", "D21"], venue: "AB02-216", faculty: "IAMNEO 9" },
+                    { id: "oop33", slots: ["B14", "B23", "D21"], venue: "AB02-219", faculty: "IAMNEO 6" },
+                    { id: "oop34", slots: ["B14", "B23", "D21"], venue: "AB02-218", faculty: "IAMNEO 7" },
+                    { id: "oop35", slots: ["B14", "B23", "D21"], venue: "AB02-222", faculty: "IAMNEO 8" },
+                    { id: "oop36", slots: ["B21", "E14", "E22"], venue: "AB02-117", faculty: "IAMNEO 3" },
+                    { id: "oop37", slots: ["B21", "E14", "E22"], venue: "AB02-206", faculty: "IAMNEO 4" },
+                    { id: "oop38", slots: ["B21", "E14", "E22"], venue: "AB02-222", faculty: "IAMNEO 6" },
+                    { id: "oop39", slots: ["B21", "E14", "E22"], venue: "AB02-216", faculty: "IAMNEO 7" },
+                    { id: "oop40", slots: ["B21", "E14", "E22"], venue: "AB02-218", faculty: "IAMNEO 8" },
+                    { id: "oop41", slots: ["B22", "B24", "F21"], venue: "AB02-216", faculty: "IAMNEO 3" },
+                    { id: "oop42", slots: ["B22", "B24", "F21"], venue: "AB02-218", faculty: "IAMNEO 4" },
+                    { id: "oop43", slots: ["B22", "B24", "F21"], venue: "AB02-222", faculty: "IAMNEO 5" },
+                    { id: "oop44", slots: ["B22", "B24", "F21"], venue: "AB02-219", faculty: "IAMNEO 6" },
+                    { id: "oop45", slots: ["B22", "B24", "F21"], venue: "AB02-223", faculty: "IAMNEO 7" },
+                    { id: "oop46", slots: ["B22", "B24", "F21"], venue: "AB02-202", faculty: "IAMNEO 8" },
+                    { id: "oop47", slots: ["C11", "C12", "C13"], venue: "AB02-117", faculty: "IAMNEO 3" },
+                    { id: "oop48", slots: ["C11", "C12", "C13"], venue: "AB02-206", faculty: "IAMNEO 4" },
+                    { id: "oop49", slots: ["C11", "C12", "C13"], venue: "AB02-219", faculty: "IAMNEO 5" },
+                    { id: "oop50", slots: ["C11", "C12", "C13"], venue: "AB02-223", faculty: "IAMNEO 6" },
+                    { id: "oop51", slots: ["C11", "C12", "C13"], venue: "AB02-220", faculty: "IAMNEO 7" },
+                    { id: "oop52", slots: ["C11", "C12", "C13"], venue: "AB02-230", faculty: "IAMNEO 8" },
+                    { id: "oop53", slots: ["C14", "E11", "E12"], venue: "AB02-223", faculty: "IAMNEO 3" },
+                    { id: "oop54", slots: ["C14", "E11", "E12"], venue: "AB02-206", faculty: "IAMNEO 4" },
+                    { id: "oop55", slots: ["C14", "E11", "E12"], venue: "AB02-222", faculty: "IAMNEO 6" },
+                    { id: "oop56", slots: ["C14", "E11", "E12"], venue: "AB02-221", faculty: "IAMNEO 7" },
+                    { id: "oop57", slots: ["C14", "E11", "E12"], venue: "AB02-224", faculty: "IAMNEO 8" },
+                    { id: "oop58", slots: ["C14", "E11", "E12"], venue: "AB02-218", faculty: "IAMNEO 8" },
+                    { id: "oop59", slots: ["C21", "F11", "F12"], venue: "AB02-205", faculty: "IAMNEO 3" },
+                    { id: "oop60", slots: ["C21", "F11", "F12"], venue: "AB02-216", faculty: "IAMNEO 4" },
+                    { id: "oop61", slots: ["C21", "F11", "F12"], venue: "AB02-206", faculty: "IAMNEO 5" },
+                    { id: "oop62", slots: ["C21", "F11", "F12"], venue: "AB02-221", faculty: "IAMNEO 6" },
+                    { id: "oop63", slots: ["C21", "F11", "F12"], venue: "AB02-220", faculty: "IAMNEO 7" },
+                    { id: "oop64", slots: ["C21", "F11", "F12"], venue: "AB02-219", faculty: "IAMNEO 8" }
+                ]
+            },
+            {
+                code: "CSE4001",
+                title: "Internet and Web Programming",
+                credits: 4,
+                type: "LP",
+                owner: "SCSE",
+                options: [
+                    { id: "iwp1", slots: ["A11", "A12", "A13"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp2", slots: ["A11", "A12", "A13"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp3", slots: ["A11", "A12", "A13"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "iwp4", slots: ["A14", "D11", "D12"], venue: "AB02-204", faculty: "FACE TRAINER 4" },
+                    { id: "iwp5", slots: ["A14", "D11", "D12"], venue: "AB02-219", faculty: "FACE TRAINER 5" },
+                    { id: "iwp6", slots: ["A21", "A22", "A23"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp7", slots: ["A21", "A22", "A23"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp8", slots: ["A21", "A22", "A23"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "iwp9", slots: ["A24", "E21", "F22"], venue: "AB02-003", faculty: "FACE TRAINER 4" },
+                    { id: "iwp10", slots: ["A24", "E21", "F22"], venue: "AB02-004", faculty: "FACE TRAINER 5" },
+                    { id: "iwp11", slots: ["B11", "B12", "B13"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp12", slots: ["B11", "B12", "B13"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp13", slots: ["B14", "B23", "D21"], venue: "AB02-205", faculty: "FACE TRAINER 5" },
+                    { id: "iwp14", slots: ["B14", "B23", "D21"], venue: "AB02-203", faculty: "FACE TRAINER 6" },
+                    { id: "iwp15", slots: ["B21", "E14", "E22"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp16", slots: ["B21", "E14", "E22"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp17", slots: ["B21", "E14", "E22"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "iwp18", slots: ["B22", "B24", "F21"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp19", slots: ["B22", "B24", "F21"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp20", slots: ["C11", "C12", "C13"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp21", slots: ["C11", "C12", "C13"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "iwp22", slots: ["C14", "E11", "E12"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp23", slots: ["C14", "E11", "E12"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp24", slots: ["C21", "F11", "F12"], venue: "AB02-004", faculty: "FACE TRAINER 4" },
+                    { id: "iwp25", slots: ["C21", "F11", "F12"], venue: "AB02-017", faculty: "FACE TRAINER 5" },
+                    { id: "iwp26", slots: ["C21", "F11", "F12"], venue: "AB02-018", faculty: "FACE TRAINER 6" },
+                    { id: "iwp27", slots: ["C21", "F11", "F12"], venue: "AB02-019", faculty: "FACE TRAINER 7" }
+                ]
+            },
+            {
+                code: "CSE3006",
+                title: "Computer Networks",
+                credits: 4,
+                type: "Theory & Lab",
+                owner: "SCSE",
+                options: [
+                    { id: "cn1", slots: ["A11", "A12", "A13"], venue: "AB02-320", faculty: "GAURAV SONI" },
+                    { id: "cn2", slots: ["A11", "A12", "A13"], venue: "AB02-216", faculty: "S. PERIYANAYAGI" },
+                    { id: "cn3", slots: ["A11", "A12", "A13"], venue: "AB02-319", faculty: "ADARSH PATEL" },
+                    { id: "cn4", slots: ["A14", "D11", "D12"], venue: "AB02-323", faculty: "RAVI VERMA" },
+                    { id: "cn5", slots: ["A14", "D11", "D12"], venue: "AB02-225", faculty: "AJAY SHARMA" },
+                    { id: "cn6", slots: ["A14", "D11", "D12"], venue: "AB02-322", faculty: "JITENDRA PRATAP SINGH MATHUR" },
+                    { id: "cn7", slots: ["A21", "A22", "A23"], venue: "AB02-324", faculty: "KAMLESH CHANDRAVANSHI" },
+                    { id: "cn8", slots: ["A21", "A22", "A23"], venue: "AB02-323", faculty: "GAURAV SONI" },
+                    { id: "cn9", slots: ["B11", "B12", "B13"], venue: "AB02-324", faculty: "SHAHANA GAJALA QURESHI" },
+                    { id: "cn10", slots: ["B11", "B12", "B13"], venue: "AB02-317", faculty: "SANAT JAIN" },
+                    { id: "cn11", slots: ["B11", "B12", "B13"], venue: "AB02-323", faculty: "GARIMA JAIN" },
+                    { id: "cn12", slots: ["B11", "B12", "B13"], venue: "AB02-322", faculty: "SHELENDRA KUMAR JAIN" },
+                    { id: "cn13", slots: ["B11", "B12", "B13"], venue: "AB02-318", faculty: "KALPANA SINGH" },
+                    { id: "cn14", slots: ["B21", "E14", "E22"], venue: "AB02-304", faculty: "SANAT JAIN" },
+                    { id: "cn15", slots: ["B21", "E14", "E22"], venue: "AB02-321", faculty: "GARIMA JAIN" },
+                    { id: "cn16", slots: ["B21", "E14", "E22"], venue: "AB02-320", faculty: "VELMANI R" },
+                    { id: "cn17", slots: ["B21", "E14", "E22"], venue: "AB02-319", faculty: "AMIT ABHISHEK" },
+                    { id: "cn18", slots: ["B22", "B24", "F21"], venue: "AB02-324", faculty: "VELMANI R" },
+                    { id: "cn19", slots: ["B22", "B24", "F21"], venue: "AB02-323", faculty: "AMIT ABHISHEK" },
+                    { id: "cn20", slots: ["B22", "B24", "F21"], venue: "AB02-322", faculty: "CHAYAN PAUL" },
+                    { id: "cn21", slots: ["C11", "C12", "C13"], venue: "AB02-324", faculty: "SARAVANAN" },
+                    { id: "cn22", slots: ["C11", "C12", "C13"], venue: "AB02-323", faculty: "RAVI VERMA" },
+                    { id: "cn23", slots: ["C11", "C12", "C13"], venue: "AB02-305", faculty: "AJAY SHARMA" },
+                    { id: "cn24", slots: ["C14", "E11", "E12"], venue: "AB02-319", faculty: "KAMLESH CHANDRAVANSHI" },
+                    { id: "cn25", slots: ["C14", "E11", "E12"], venue: "AB02-318", faculty: "GAURAV SONI" },
+                    { id: "cn26", slots: ["C14", "E11", "E12"], venue: "AB02-317", faculty: "S. PERIYANAYAGI" },
+                    { id: "cn27", slots: ["C14", "E11", "E12"], venue: "AB02-305", faculty: "ADARSH PATEL" },
+                    { id: "cn28", slots: ["C14", "E11", "E12"], venue: "AB02-205", faculty: "KALPANA SINGH" }
+                ]
+            },
+            {
+                code: "CSE2004",
+                title: "Theory Of Computation And Compiler Design",
+                credits: 4,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "toc1", slots: ["A11", "A12", "A13"], venue: "AB02-4F-T2", faculty: "KAMLESH CHANDRAVANSHI" },
+                    { id: "toc2", slots: ["A11", "A12", "A13"], venue: "AB02-4F-T1", faculty: "RAJIT NAIR" },
+                    { id: "toc3", slots: ["A11", "A12", "A13"], venue: "AB02-455", faculty: "NEHA RATHORE" },
+                    { id: "toc4", slots: ["A14", "D11", "D12"], venue: "AB02-4F-T2", faculty: "VIJAY KUMAR TRIVEDI" },
+                    { id: "toc5", slots: ["A14", "D11", "D12"], venue: "AB02-4F-T1", faculty: "NEHA RATHORE" },
+                    { id: "toc6", slots: ["A21", "A22", "A23"], venue: "AB02-4F-T2", faculty: "PREETAM SUMAN" },
+                    { id: "toc7", slots: ["A24", "E21", "F22"], venue: "AB02-4F-T2", faculty: "CHANDAN KUMAR BEHERA" },
+                    { id: "toc8", slots: ["A24", "E21", "F22"], venue: "AB02-4F-T1", faculty: "VENKAT PRASAD PADHY" },
+                    { id: "toc9", slots: ["A24", "E21", "F22"], venue: "AB02-455", faculty: "PRAMOD KUMAR BHATT" },
+                    { id: "toc10", slots: ["A24", "E21", "F22"], venue: "AB02-454", faculty: "P. SARAVANA KUMAR" },
+                    { id: "toc11", slots: ["A24", "E21", "F22"], venue: "AB02-453", faculty: "SANTHOSH KUMAR S" },
+                    { id: "toc12", slots: ["B11", "B12", "B13"], venue: "AB02-4F-T2", faculty: "PARAS JAIN" },
+                    { id: "toc13", slots: ["B11", "B12", "B13"], venue: "AB02-3F-T1", faculty: "VIKAS PANTHI" },
+                    { id: "toc14", slots: ["B11", "B12", "B13"], venue: "AB02-4F-T1", faculty: "PREETAM SUMAN" },
+                    { id: "toc15", slots: ["B11", "B12", "B13"], venue: "AB02-455", faculty: "VIJAY KUMAR TRIVEDI" },
+                    { id: "toc16", slots: ["B11", "B12", "B13"], venue: "AB02-454", faculty: "LOKESH MALVIYA" },
+                    { id: "toc17", slots: ["B14", "B23", "D21"], venue: "AB02-4F-T1", faculty: "LOKESH MALVIYA" },
+                    { id: "toc18", slots: ["B14", "B23", "D21"], venue: "AB02-455", faculty: "P. SARAVANA KUMAR" },
+                    { id: "toc19", slots: ["B14", "B23", "D21"], venue: "AB02-454", faculty: "SANTHOSH KUMAR S" },
+                    { id: "toc20", slots: ["B21", "E14", "E22"], venue: "AB02-4F-T2", faculty: "PARAS JAIN" },
+                    { id: "toc21", slots: ["B21", "E14", "E22"], venue: "AB02-402", faculty: "DEVARAJU S" },
+                    { id: "toc22", slots: ["B21", "E14", "E22"], venue: "AB02-4F-T1", faculty: "PRAMOD KUMAR BHATT" },
+                    { id: "toc23", slots: ["C11", "C12", "C13"], venue: "AB02-4F-T2", faculty: "CHANDAN KUMAR BEHERA" }
+                ]
+            },
+            {
+                code: "CSE2002",
+                title: "Data Structures and Algorithms",
+                credits: 4,
+                type: "Theory & Lab",
+                owner: "SCSE",
+                options: [
+                    { id: "dsa1", slots: ["A11", "A12", "A13"], venue: "AB02-218", faculty: "IAMNEO 9" },
+                    { id: "dsa2", slots: ["A14", "D11", "D12"], venue: "AB02-018", faculty: "IAMNEO 9" },
+                    { id: "dsa3", slots: ["A14", "D11", "D12"], venue: "AB02-414", faculty: "IAMNEO 10" },
+                    { id: "dsa4", slots: ["A21", "A22", "A23"], venue: "AB02-218", faculty: "IAMNEO 9" },
+                    { id: "dsa5", slots: ["A21", "A22", "A23"], venue: "AB02-320", faculty: "IAMNEO 10" },
+                    { id: "dsa6", slots: ["A24", "E21", "F22"], venue: "AB02-020", faculty: "IAMNEO 8" },
+                    { id: "dsa7", slots: ["A24", "E21", "F22"], venue: "AB02-220", faculty: "IAMNEO 9" },
+                    { id: "dsa8", slots: ["B11", "B12", "B13"], venue: "AB02-301", faculty: "IAMNEO 10" },
+                    { id: "dsa9", slots: ["B14", "B23", "D21"], venue: "AB02-104", faculty: "IAMNEO 10" },
+                    { id: "dsa10", slots: ["B14", "B23", "D21"], venue: "AB02-224", faculty: "IAMNEO 10" },
+                    { id: "dsa11", slots: ["B21", "E14", "E22"], venue: "AB02-202", faculty: "IAMNEO 9" },
+                    { id: "dsa12", slots: ["B21", "E14", "E22"], venue: "AB02-322", faculty: "IAMNEO 10" },
+                    { id: "dsa13", slots: ["B22", "B24", "F21"], venue: "AB02-119", faculty: "IAMNEO 9" },
+                    { id: "dsa14", slots: ["B22", "B24", "F21"], venue: "AB02-319", faculty: "IAMNEO 10" },
+                    { id: "dsa15", slots: ["C11", "C12", "C13"], venue: "AB02-320", faculty: "IAMNEO 9" },
+                    { id: "dsa16", slots: ["C11", "C12", "C13"], venue: "AB02-322", faculty: "IAMNEO 10" },
+                    { id: "dsa17", slots: ["C14", "E11", "E12"], venue: "AB02-216", faculty: "IAMNEO 9" },
+                    { id: "dsa18", slots: ["C21", "F11", "F12"], venue: "AB02-225", faculty: "IAMNEO 9" },
+                    { id: "dsa19", slots: ["C21", "F11", "F12"], venue: "AB02-223", faculty: "IAMNEO 10" }
+                ]
+            },
+            {
+                code: "CSE2003",
+                title: "Computer Architecture and Organization",
+                credits: 4,
+                type: "Theory",
+                owner: "SCSE",
+                options: [
+                    { id: "cao1", slots: ["A11", "A12", "A13"], venue: "AB02-318", faculty: "BUVANESWARI PR" },
+                    { id: "cao2", slots: ["A11", "A12", "A13"], venue: "AB02-317", faculty: "MITHUN SINGH AHIRWAR" },
+                    { id: "cao3", slots: ["A14", "D11", "D12"], venue: "AB02-305", faculty: "TRAPTI SHARMA" },
+                    { id: "cao4", slots: ["A14", "D11", "D12"], venue: "AB02-317", faculty: "JAY PRAKASH MAURYA" },
+                    { id: "cao5", slots: ["A14", "D11", "D12"], venue: "AB02-223", faculty: "ABDUL RAHMAN" },
+                    { id: "cao6", slots: ["A14", "D11", "D12"], venue: "AB02-321", faculty: "DEVENDRA KUMAR VEDI" },
+                    { id: "cao7", slots: ["A14", "D11", "D12"], venue: "AB02-203", faculty: "SHELENDRA KUMAR JAIN" },
+                    { id: "cao8", slots: ["A21", "A22", "A23"], venue: "AB02-217", faculty: "JAY PRAKASH MAURYA" },
+                    { id: "cao9", slots: ["A21", "A22", "A23"], venue: "AB02-304", faculty: "SHELENDRA KUMAR JAIN" },
+                    { id: "cao10", slots: ["A24", "E21", "F22"], venue: "AB02-224", faculty: "MOHD RAFI LONE" },
+                    { id: "cao11", slots: ["A24", "E21", "F22"], venue: "AB02-305", faculty: "R. SENTHILKUMAR" },
+                    { id: "cao12", slots: ["A24", "E21", "F22"], venue: "AB02-303", faculty: "MOSES DIAN S" },
+                    { id: "cao13", slots: ["B11", "B12", "B13"], venue: "AB02-321", faculty: "ABDUL RAHMAN" },
+                    { id: "cao14", slots: ["B11", "B12", "B13"], venue: "AB02-302", faculty: "DEVENDRA KUMAR VEDI" },
+                    { id: "cao15", slots: ["B14", "B23", "D21"], venue: "AB02-305", faculty: "KOMARASAMY G" },
+                    { id: "cao16", slots: ["B14", "B23", "D21"], venue: "AB02-223", faculty: "PRAVINDRA SHEKHAR SHAKUNT" },
+                    { id: "cao17", slots: ["B21", "E14", "E22"], venue: "AB02-318", faculty: "R. SENTHILKUMAR" },
+                    { id: "cao18", slots: ["B21", "E14", "E22"], venue: "AB02-317", faculty: "PRAVINDRA SHEKHAR SHAKUNT" },
+                    { id: "cao19", slots: ["B22", "B24", "F21"], venue: "AB02-304", faculty: "M. SURESH" },
+                    { id: "cao20", slots: ["B22", "B24", "F21"], venue: "AB02-305", faculty: "ASHFAQ AHMAD NAJAR" },
+                    { id: "cao21", slots: ["B22", "B24", "F21"], venue: "AB02-303", faculty: "VIKASH SHAW" },
+                    { id: "cao22", slots: ["C11", "C12", "C13"], venue: "AB02-304", faculty: "M. SURESH" },
+                    { id: "cao23", slots: ["C11", "C12", "C13"], venue: "AB02-321", faculty: "DAOOD SALEEM" },
+                    { id: "cao24", slots: ["C21", "F11", "F12"], venue: "AB02-305", faculty: "MOSES DIAN S" },
+                    { id: "cao25", slots: ["C21", "F11", "F12"], venue: "AB02-224", faculty: "VIKASH SHAW" }
+                ]
+            },
+            {
+                code: "ECE3004",
+                title: "Microprocessors And Microcontrollers",
+                credits: 4,
+                type: "Theory",
+                owner: "SEEE",
+                options: [
+                    { id: "ece1", slots: ["A11", "A12", "A13"], venue: "NIL", faculty: "SURESH M" },
+                    { id: "ece2", slots: ["A11", "A12", "A13"], venue: "AB-128", faculty: "RUPESH KUMARI" },
+                    { id: "ece3", slots: ["A21", "A22", "A23"], venue: "NIL", faculty: "M.R. THIYAGU PRIYADHARSAN" },
+                    { id: "ece4", slots: ["A21", "A22", "A23"], venue: "AB-216", faculty: "OM PRAKASH PAHARI" },
+                    { id: "ece5", slots: ["A21", "A22", "A23"], venue: "AB-430", faculty: "KRISHNA CHAUHAN" },
+                    { id: "ece6", slots: ["A21", "A22", "A23"], venue: "AB-329", faculty: "RUPESH KUMARI" },
+                    { id: "ece7", slots: ["A21", "A22", "A23"], venue: "AB-503", faculty: "DEEP CHANDRA UPADHYAY" },
+                    { id: "ece8", slots: ["B11", "B12", "B13"], venue: "AB-206", faculty: "RANI KUMARI" },
+                    { id: "ece9", slots: ["B11", "B12", "B13"], venue: "AB-216", faculty: "MANIKANDAN SP" },
+                    { id: "ece10", slots: ["B11", "B12", "B13"], venue: "AB-320", faculty: "DEEP CHANDRA UPADHYAY" },
+                    { id: "ece11", slots: ["B21", "E14", "E22"], venue: "AB-301", faculty: "MANIKANDAN SP" },
+                    { id: "ece12", slots: ["C14", "E11", "E12"], venue: "AB-212", faculty: "OM PRAKASH PAHARI" },
+                    { id: "ece13", slots: ["C14", "E11", "E12"], venue: "AB-201", faculty: "RANI KUMARI" },
+                    { id: "ece14", slots: ["C14", "E11", "E12"], venue: "AB-216", faculty: "KRISHNA CHAUHAN" },
+                    { id: "ece15", slots: ["C14", "E11", "E12"], venue: "AB-331", faculty: "RUPESH KUMARI" }
+                ]
+            }
+        ];
+
+        const MAX_CREDITS = 27;
+        const STORAGE_KEY = 'vit_ffcs_plans_v2';
+        const DAYS = Object.keys(TIMETABLE_MATRIX);
+
+        // Slot code -> list of { day, period } it occupies
+        const SLOT_INDEX = (() => {
+            const idx = {};
+            Object.entries(TIMETABLE_MATRIX).forEach(([day, periods]) => {
+                Object.entries(periods).forEach(([period, slot]) => {
+                    (idx[slot] = idx[slot] || []).push({ day, period });
+                });
+            });
+            return idx;
+        })();
+
+        const ALL_FACULTY = Array.from(new Set(INITIAL_SUBJECTS.flatMap(s => s.options.map(o => o.faculty)))).sort();
+
+        // ==========================================
+        // 2. HELPERS
+        // ==========================================
+        const totalCredits = (selections) => selections.reduce((sum, s) => sum + s.credits, 0);
+
+        function buildLookup(selections) {
+            const lookup = {};
+            selections.forEach(sel => {
+                sel.option.slots.forEach(slot => {
+                    (SLOT_INDEX[slot] || []).forEach(({ day, period }) => {
+                        const key = `${day}-${period}`;
+                        (lookup[key] = lookup[key] || []).push({ code: sel.code, faculty: sel.option.faculty, venue: sel.option.venue, slot });
+                    });
+                });
+            });
+            return lookup;
+        }
+
+        function slotConflicts(selections, subjectCode, option) {
+            const cells = new Set(option.slots.flatMap(slot => (SLOT_INDEX[slot] || []).map(({ day, period }) => `${day}-${period}`)));
+            return selections.filter(s => s.code !== subjectCode && s.option.slots.some(slot =>
+                (SLOT_INDEX[slot] || []).some(({ day, period }) => cells.has(`${day}-${period}`))));
+        }
+
+        function checkClashes(selections) {
+            const lookup = buildLookup(selections);
+            return Object.entries(lookup)
+                .filter(([, items]) => items.length > 1)
+                .map(([key, items]) => ({ key, items }));
+        }
+
+        const STUDENT_PROFILES = [
+            { id: 'early', name: 'Early riser', description: 'Prioritizes morning classes and earlier finishes.', score: m => m.periodSum + m.late * 5 },
+            { id: 'late', name: 'Late sleeper', description: 'Prioritizes later starts, avoiding early morning classes.', score: m => m.early * 15 - m.startSum * 3 - m.periodSum },
+            { id: 'afternoon', name: 'Afternoon learner', description: 'Prefers classes around 13:15–16:20.', score: m => m.afternoonDistance * 5 + m.early * 3 },
+            { id: 'evening', name: 'Evening learner', description: 'Prefers classes around 16:25–19:30.', score: m => -m.periodSum * 3 + m.early * 5 },
+            { id: 'commuter', name: 'Commuter', description: 'Prioritizes fewer campus days, then shorter gaps.', score: m => m.days * 40 + m.gaps * 4 + m.span },
+            { id: 'focus', name: 'Focused study', description: 'Groups classes together to protect longer study blocks.', score: m => m.gaps * 20 + m.span * 2 + m.days },
+            { id: 'balanced', name: 'Balanced week', description: 'Spreads classes more evenly across the week.', score: m => m.loadSquares * 8 + m.maxLoad * 4 + m.gaps },
+            { id: 'sports', name: 'Sports enthusiast', description: 'Keeps late afternoons and evenings free for practice.', score: m => m.late * 25 + m.finishSum * 2 + m.gaps },
+            { id: 'working', name: 'Working student', description: 'Protects morning work hours by favoring classes after 13:15.', score: m => m.morning * 25 + m.early * 5 + m.gaps * 2 },
+            { id: 'weekend', name: 'Weekend planner', description: 'Prioritizes a free Saturday and an earlier Friday finish.', score: m => m.saturday * 40 + m.fridayFinish * 5 + m.days + m.gaps }
+        ];
+
+        // CR rooms are in the AB-1 / LC / AR group; Linux Administration is online.
+        // AB-### rooms belong to AB-1; AB02-### belongs to the hostel-side block.
+        function campusZone(venue) {
+            const room = (venue || '').toUpperCase().replace(/\s+/g, '');
+            if (/^AB-?0?2(?:-|$)/.test(room)) return 'ab02';
+            if (/^(?:AB(?:-?0?1)?|LC|AR|CR)(?:-|$)/.test(room)) return 'central';
+            return null;
+        }
+
+        // Walking is the first priority for every student profile.
+        const compareRoutine = (a, b, profile) =>
+            a.metrics.unknownVenueClasses - b.metrics.unknownVenueClasses ||
+            Math.round(a.metrics.walkingKm * 10) - Math.round(b.metrics.walkingKm * 10) ||
+            a.metrics.clashPeriods - b.metrics.clashPeriods ||
+            a.metrics.crossings - b.metrics.crossings ||
+            a.metrics.morningDepartureKm - b.metrics.morningDepartureKm ||
+            a.metrics.restartKm - b.metrics.restartKm ||
+            profile.score(a.metrics) - profile.score(b.metrics) || a.key.localeCompare(b.key);
+
+        const STUDENT_CATEGORIES = {
+            day: { label: 'Day scholar', origin: 'Campus entrance', ab02: 1, central: 0.5 },
+            boys: { label: 'Boys hostel', origin: 'Boys hostel', ab02: 0.5, central: 2.2 },
+            girls: { label: 'Girls hostel', origin: 'Girls hostel', ab02: 0.4, central: 1.2 }
+        };
+        const CLASS_MINUTES = Object.fromEntries(PERIOD_TIMINGS.map(p =>
+            [Number(p.id.slice(1)), p.time.split(' - ').map(t => {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+            })]));
+
+        function scheduleMetrics(combo, returnForLunch = false, category = 'boys') {
+            const origin = STUDENT_CATEGORIES[category];
+            const lookup = buildLookup(combo);
+            const m = { days: 0, gaps: 0, span: 0, early: 0, morning: 0, late: 0, periodSum: 0, startSum: 0, finishSum: 0, afternoonDistance: 0, loadSquares: 0, maxLoad: 0, saturday: 0, fridayFinish: 0, crossings: 0, walkingKm: 0, hostelKm: 0, morningDepartureKm: 0, restartKm: 0, lunchReturns: 0, dailyTravel: [], unknownVenueClasses: 0, clashPeriods: checkClashes(combo).length };
+            DAYS.forEach(day => {
+                const periods = Object.keys(TIMETABLE_MATRIX[day])
+                    .filter(period => lookup[`${day}-${period}`]).map(period => Number(period.slice(1))).sort((a, b) => a - b);
+                if (!periods.length) return;
+                const start = Math.min(...periods), finish = Math.max(...periods);
+                if (periods.some(period => lookup[`${day}-P${period}`].some(item => item.venue !== 'Online'))) m.days++;
+                m.startSum += start;
+                m.finishSum += finish;
+                m.span += finish - start + 1;
+                m.gaps += finish - start + 1 - periods.length;
+                m.loadSquares += periods.length ** 2;
+                m.maxLoad = Math.max(m.maxLoad, periods.length);
+                if (day === 'Saturday') m.saturday = periods.length;
+                if (day === 'Friday') m.fridayFinish = finish;
+                let previousZone = null;
+                let previousPeriod = null;
+                let dailyKm = 0;
+                let lunchReturn = false;
+                const route = [origin.origin];
+                periods.forEach(period => {
+                    // Include every overlapping venue rather than hiding travel behind the first class.
+                    const items = lookup[`${day}-P${period}`];
+                    const stops = [...new Map(items.map(item => [campusZone(item.venue) || item.venue, item])).values()];
+                    stops.forEach(item => {
+                    const zone = campusZone(item.venue);
+                    if (zone) {
+                        // An optional hostel lunch needs 90 free minutes within 12:30–14:30.
+                        // Online classes reserve their full time, so cannot create a lunch gap.
+                        const freeLunchGap = previousPeriod !== null &&
+                            Math.min(CLASS_MINUTES[period][0], 14 * 60 + 30) -
+                            Math.max(CLASS_MINUTES[previousPeriod][1], 12 * 60 + 30) >= 90 &&
+                            !periods.some(p => p > previousPeriod && p < period);
+                        if (!previousZone) {
+                            dailyKm += origin[zone];
+                            m.hostelKm += origin[zone];
+                            if (period <= 3) m.morningDepartureKm += origin[zone];
+                        } else if (returnForLunch && freeLunchGap) {
+                            const trip = origin[previousZone] + origin[zone];
+                            dailyKm += trip;
+                            m.hostelKm += trip;
+                            m.restartKm += origin[zone];
+                            m.lunchReturns++;
+                            lunchReturn = true;
+                            route.push(`${origin.origin} (lunch)`);
+                        } else if (previousZone !== zone) {
+                            m.crossings++;
+                            dailyKm += 1.5;
+                        }
+                        const label = zone === 'ab02' ? 'AB-02' : 'AB-01 / LC / AR';
+                        if (route[route.length - 1] !== label) route.push(label);
+                        previousZone = zone;
+                        previousPeriod = period;
+                    } else if (item.venue !== 'Online') {
+                        m.unknownVenueClasses++;
+                    }
+                    });
+                    m.periodSum += period;
+                    m.early += period <= 2 ? 1 : 0;
+                    m.morning += period <= 3 ? 1 : 0;
+                    m.late += period >= 6 ? 1 : 0;
+                    m.afternoonDistance += Math.min(Math.abs(period - 4), Math.abs(period - 5));
+                });
+                if (previousZone) {
+                    dailyKm += origin[previousZone];
+                    m.hostelKm += origin[previousZone];
+                    route.push(origin.origin);
+                    m.dailyTravel.push({ day, km: dailyKm, route, lunchReturn });
+                    m.walkingKm += dailyKm;
+                }
+            });
+            return m;
+        }
+
+        // Faculty-only changes do not count as different timetables.
+        const scheduleKey = combo => combo.map(s => `${s.code}:${[...s.option.slots].sort().join(',')}`).sort().join('|');
+
+        function teacherChoices(selection) {
+            const current = selection.option;
+            const slots = [...current.slots].sort().join(',');
+            const zone = campusZone(current.venue);
+            const building = venue => {
+                const room = venue.toUpperCase().replace(/\s+/g, '');
+                if (campusZone(venue) === 'ab02') return 'AB-02';
+                if (/^LC-/.test(room)) return 'LC';
+                if (/^AR-/.test(room)) return 'AR';
+                if (/^AB(?:-?0?1)?-/.test(room)) return 'AB-01';
+                return null;
+            };
+            const proximity = option => {
+                if (option.venue === 'Online') return 'Online';
+                if (!campusZone(option.venue)) return 'Location unspecified';
+                if (building(current.venue) && building(current.venue) === building(option.venue)) return 'Same building';
+                return 'Nearby building group';
+            };
+            const subject = INITIAL_SUBJECTS.find(s => s.code === selection.code);
+            return (subject ? subject.options : [current])
+                .filter(option => [...option.slots].sort().join(',') === slots &&
+                    (option.id === current.id ||
+                        (zone && campusZone(option.venue) === zone) ||
+                        (current.venue === 'Online' && option.venue === 'Online')))
+                .map(option => ({ option, location: proximity(option) }))
+                .sort((a, b) => (a.location === 'Nearby building group') - (b.location === 'Nearby building group') ||
+                    a.option.faculty.localeCompare(b.option.faculty) || a.option.venue.localeCompare(b.option.venue));
+        }
+
+        function generateCombos(subjects, returnForLunch = false, category = 'boys', clashFree = false) {
+            subjects = subjects.filter(subject => subject.slotBased !== false);
+            if (!subjects.length) return [];
+            const ordered = subjects.map(subject => {
+                const patterns = new Map();
+                subject.options.forEach(option => {
+                    if (!option.slots.length || option.slots.some(slot => !SLOT_INDEX[slot])) return;
+                    const key = `${[...option.slots].sort().join(',')}:${campusZone(option.venue) || 'unknown'}`;
+                    if (!patterns.has(key)) patterns.set(key, option);
+                });
+                return { ...subject, options: [...patterns.values()] };
+            }).sort((a, b) => a.options.length - b.options.length || a.code.localeCompare(b.code));
+            const unavailable = ordered.find(subject => !subject.options.length);
+            if (unavailable) throw new Error(`${unavailable.code} has no listed timetable slots.`);
+            const candidates = new Map();
+            // Search independently for each routine so the original faculty order
+            // cannot fill every result with the same morning or evening pattern.
+            STUDENT_PROFILES.forEach(profile => {
+                let beam = [{ combo: [], used: new Set(), metrics: scheduleMetrics([], returnForLunch, category), key: '' }];
+                for (const subject of ordered) {
+                    const next = [];
+                    beam.forEach(state => subject.options.forEach(option => {
+                        const cells = option.slots.flatMap(slot => SLOT_INDEX[slot].map(cell => `${cell.day}-${cell.period}`));
+                        if (clashFree && cells.some(cell => state.used.has(cell))) return;
+                        const combo = [...state.combo, { ...subject, option }];
+                        next.push({ combo, used: new Set([...state.used, ...cells]), metrics: scheduleMetrics(combo, returnForLunch, category), key: combo.map(s => `${s.code}:${s.option.slots.slice().sort().join(',')}:${campusZone(s.option.venue) || 'unknown'}`).sort().join('|') });
+                    }));
+                    next.sort((a, b) => compareRoutine(a, b, profile));
+                    beam = next.slice(0, 600);
+                    if (!beam.length) break;
+                }
+                beam.filter(state => state.combo.length === ordered.length).forEach(state => {
+                    const key = scheduleKey(state.combo);
+                    const existing = candidates.get(key);
+                    if (!existing || compareRoutine(state, { metrics: scheduleMetrics(existing, returnForLunch, category), key: state.key }, profile) < 0) {
+                        candidates.set(key, state.combo);
+                    }
+                });
+            });
+            const searchSpace = ordered.reduce((n, subject) => n * subject.options.length, 1);
+            // Enumerate feasible schedules for small selections; use a bounded fallback for large searches.
+            if (searchSpace <= 50000 || candidates.size < 10) {
+                let visited = 0;
+                const exhaustive = searchSpace <= 50000;
+                const visit = (index, combo, occupied) => {
+                    if (++visited > 250000 || (!exhaustive && candidates.size >= 10)) return;
+                    if (index === ordered.length) {
+                        const key = scheduleKey(combo);
+                        const existing = candidates.get(key);
+                        if (!existing || compareRoutine(
+                            { metrics: scheduleMetrics(combo, returnForLunch, category), key },
+                            { metrics: scheduleMetrics(existing, returnForLunch, category), key }, STUDENT_PROFILES[0]) < 0) candidates.set(key, combo);
+                        return; 
+                    }
+                    const subject = ordered[index];
+                    for (const option of subject.options) {
+                        const cells = option.slots.flatMap(slot => SLOT_INDEX[slot].map(cell => `${cell.day}-${cell.period}`));
+                        if (clashFree && cells.some(cell => occupied.has(cell))) continue;
+                        visit(index + 1, [...combo, { ...subject, option }], new Set([...occupied, ...cells]));
+                        if (!exhaustive && candidates.size >= 10) break;
+                    }
+                };
+                visit(0, [], new Set());
+            }
+            const available = [...candidates.entries()]
+                .filter(([, combo]) => !clashFree || checkClashes(combo).length === 0)
+                .map(([key, combo]) => ({ key, combo, metrics: scheduleMetrics(combo, returnForLunch, category) }));
+            if (!available.length) throw new Error(searchSpace <= 50000
+                ? 'No clash-free combination exists for these courses using the listed slots. Change your course selection and try again. No timetable has been created.'
+                : 'No clash-free combination was found within the search limit. Try a smaller course selection or different courses. No timetable has been created.');
+            if (clashFree) return available;
+            // Keep all ten routine styles, including those needing conflict resolution.
+            const routines = STUDENT_PROFILES.map(profile => ({
+                ...[...available].sort((a, b) => compareRoutine(a, b, profile))[0], profile  
+            }));
+            let feasible = [];
+            if (routines.some(result => result.metrics.clashPeriods)) {
+                try { feasible = generateCombos(subjects, returnForLunch, category, true); }
+                catch (error) {
+                    return routines.map(result => ({ ...result, alternatives: [], resolutionError: error.message }));
+                }
+            }
+            return routines.map(result => ({ ...result, alternatives: result.metrics.clashPeriods
+                ? rankRepairs(result.combo, feasible, result.profile).slice(0, 3) : [] })); 
+        }
+
+        function rankRepairs(original, feasible, profile) {
+            const changes = candidate => original.filter(selection => {
+                const replacement = candidate.combo.find(s => s.code === selection.code);
+                return replacement.option.slots.slice().sort().join(',') !== selection.option.slots.slice().sort().join(',');
+            }).length;
+            return [...feasible].sort((a, b) => changes(a) - changes(b) || compareRoutine(a, b, profile));
+        }
+
+        function loadPlans() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                if (Array.isArray(saved) && saved.length) return saved.map(plan => ({
+                    ...plan,
+                    selections: plan.selections.map(selection => selection.code === 'CSE0002'
+                        ? { ...selection, option: { ...selection.option, venue: 'Online' } }
+                        : selection)
+                }));
+            } catch (e) {}
+            return [
+                { id: 'plan-1', name: 'Plan 1 - Preferred', selections: [] },
+                { id: 'plan-2', name: 'Plan 2 - Morning Focus', selections: [] }
+            ];
+        }
+
+        // ==========================================
+        // 3. COMPONENTS
+        // ==========================================
+        function StatCard({ icon: Icon, label, value, tone = 'blue' }) {
+            const tones = {
+                blue: 'bg-blue-100 text-blue-600',
+                emerald: 'bg-emerald-100 text-emerald-600',
+                red: 'bg-red-100 text-red-600',
+                violet: 'bg-violet-100 text-violet-600'
+            };
+            return (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
+                    <div className={`p-3 rounded-lg ${tones[tone]}`}><Icon size={22} /></div>
+                    <div>
+                        <div className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</div>
+                        <div className="text-lg font-bold text-slate-800">{value}</div>
+                    </div>
+                </div>
+            );
+        }
+
+        const COURSE_PALETTE = [
+            ['#eff6ff', '#1e40af', '#bfdbfe', '#3b82f6'],
+            ['#ecfdf5', '#065f46', '#a7f3d0', '#10b981'],
+            ['#fff7ed', '#9a3412', '#fed7aa', '#f97316'],
+            ['#f5f3ff', '#5b21b6', '#ddd6fe', '#8b5cf6'],
+            ['#fff1f2', '#9f1239', '#fecdd3', '#f43f5e'],
+            ['#ecfeff', '#155e75', '#a5f3fc', '#06b6d4'],
+            ['#fefce8', '#854d0e', '#fef08a', '#ca8a04'],
+            ['#fdf4ff', '#86198f', '#f5d0fe', '#d946ef']
+        ];
+        const courseStyle = code => {
+            const index = INITIAL_SUBJECTS.findIndex(subject => subject.code === code);
+            const [bg, ink, border, accent] = COURSE_PALETTE[Math.max(0, index) % COURSE_PALETTE.length];
+            return { '--course-bg': bg, '--course-ink': ink, '--course-border': border, '--course-accent': accent };
+        };
+
+        function TimetableGrid({ selections }) {
+            const lookup = useMemo(() => buildLookup(selections), [selections]);
+            const courseByCode = Object.fromEntries(selections.map(s => [s.code, s]));
+            return (
+                <section className="weekly-planner" aria-label="Weekly timetable">
+                    <div className="planner-heading">
+                        <div>
+                            <div className="planner-eyebrow">Your week at a glance</div>
+                            <h2>Weekly timetable</h2>
+                            <p>Class times, faculty &amp; rooms in one place.</p>
+                            <p>Lunch window: 12:30–14:30 (12:30–2:30 pm). Choose when to eat around your classes; the college has no fixed lunch period.</p>
+                        </div>
+                        <div className="planner-week"><Calendar size={14} /> Monday – Saturday</div>
+                    </div>
+                    {!selections.length && <div className="planner-empty"><strong>Your week starts here.</strong> Add courses in Subjects or apply a plan from the Generator to fill your timetable.</div>}
+                    <div className="planner-hint no-print">Scroll horizontally to see all periods →</div>
+                    <div className="planner-scroll custom-scrollbar" tabIndex={0} role="region" aria-label="Scrollable weekly schedule">
+                        <table className="planner-table">
+                            <caption className="sr-only">Weekly course schedule with time slots, faculty and venues, Monday through Saturday.</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" className="planner-day">Day / Time</th>
+                                    {PERIOD_TIMINGS.map(p => (
+                                        <th scope="col" key={p.id}>
+                                            {p.name}
+                                            <span className="planner-time">{p.time}</span>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {DAYS.map(day => {
+                                    const classCount = Object.keys(TIMETABLE_MATRIX[day]).reduce((n, period) => n + (lookup[`${day}-${period}`] || []).length, 0);
+                                    return (
+                                        <tr key={day}>
+                                            <th scope="row" className="planner-day" title={day}><strong>{day.slice(0, 3)}</strong><small>{classCount ? `${classCount} class${classCount === 1 ? '' : 'es'}` : 'No classes'}</small></th>
+                                            {PERIOD_TIMINGS.map(p => {
+                                                const items = lookup[`${day}-${p.id}`] || [];
+                                                const clash = items.length > 1;
+                                                return (
+                                                    <td key={p.id}>
+                                                        <span className="planner-slot">{TIMETABLE_MATRIX[day][p.id]}</span>
+                                                        {clash && <span className="planner-clash-label">Time conflict</span>}
+                                                        {items.length === 0 && <span className="planner-free">Free</span>}
+                                                        {items.map((it, i) => (
+                                                            <div key={`${it.code}-${i}`} style={courseStyle(it.code)} className={`planner-class ${clash ? 'planner-clash' : ''}`}>
+                                                                <strong>{it.code}</strong>
+                                                                <div className="planner-title">{courseByCode[it.code]?.title}</div>
+                                                                <div className="planner-faculty">{it.faculty.toLowerCase()}</div>
+                                                                <div className="planner-venue">{it.venue === 'Online' ? 'Online class' : `Room · ${it.venue}`}</div>
+                                                            </div>
+                                                        ))}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    {selections.length > 0 && <div className="planner-legend" aria-label="Course color legend">
+                        {selections.map(s => <div key={s.code} className="planner-legend-item" style={courseStyle(s.code)}><span className="planner-dot" aria-hidden="true" /><span><strong>{s.code}</strong> · {s.title}</span></div>)}
+                    </div>}
+                </section>
+            );
+        }
+
+        function DashboardTab({ plan, onRemove, clashes }) {
+            const credits = totalCredits(plan.selections);
+            return (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <StatCard icon={Layers} label="Credits" value={`${credits} / ${MAX_CREDITS}`} tone="blue" />
+                        <StatCard icon={BookOpen} label="Courses" value={plan.selections.length} tone="violet" />
+                        <StatCard
+                            icon={clashes.length ? AlertTriangle : CheckCircle2}
+                            label="Status"
+                            value={clashes.length ? `${clashes.length} Clash${clashes.length > 1 ? 'es' : ''}` : 'Clash Free'}
+                            tone={clashes.length ? 'red' : 'emerald'}
+                        />
+                    </div>
+
+                    {clashes.length > 0 && (
+                        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm">
+                            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                            <div>
+                                <div className="font-bold">Slot clashes detected</div>
+                                <ul className="mt-1 text-xs space-y-0.5">
+                                    {clashes.map(c => (
+                                        <li key={c.key}>{c.key.replace('-', ' ')}: {c.items.map(i => `${i.code} (${i.slot})`).join(' vs ')}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
+                    <TimetableGrid selections={plan.selections} />
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <h2 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><BookOpen size={18} /> Enrolled Courses</h2>
+                        {plan.selections.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400 text-sm">No courses added yet. Pick options in the Subjects tab or use the Generator.</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {plan.selections.map(s => (
+                                    <div key={s.code} className="border border-slate-200 rounded-lg p-3 bg-slate-50 flex justify-between items-start gap-2">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-sm">{s.code}</span>
+                                                <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">{s.credits} Credits</span>
+                                            </div>
+                                            <div className="text-xs font-medium text-slate-600 mt-0.5 truncate">{s.title}</div>
+                                            <div className="text-xs text-slate-500 mt-2">
+                                                <div><span className="font-semibold">Faculty:</span> {s.option.faculty}</div>
+                                                <div><span className="font-semibold">Slots:</span> <span className="font-mono text-blue-700">{s.option.slots.join(' + ')}</span> ({s.option.venue})</div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => onRemove(s.code)} title="Remove" className="no-print text-slate-400 hover:text-red-600 p-1 rounded hover:bg-slate-200">
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function SubjectsTab({ plan, onSelect, onRemove }) {
+    const [query, setQuery] = useState('');
+    const [faculty, setFaculty] = useState('All');
+    const [expandedSubjects, setExpandedSubjects] = useState(new Set());
+
+    const toggleSubjectExpand = (code) => {
+        const next = new Set(expandedSubjects);
+        if (next.has(code)) {
+            next.delete(code);
+        } else {
+            next.add(code);
+        }
+        setExpandedSubjects(next);
+    };
+
+    const q = query.trim().toLowerCase();
+    const filtered = INITIAL_SUBJECTS.filter(s =>
+        (s.title.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)) &&
+        (faculty === 'All' || s.options.some(o => o.faculty === faculty))
+    );
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by course code or title..."
+                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <select value={faculty} onChange={e => setFaculty(e.target.value)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="All">All Faculties</option>
+                    {ALL_FACULTY.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+            </div>
+
+            {filtered.length === 0 && <div className="text-center py-12 text-slate-400 text-sm">No subjects match your filters.</div>}
+
+            <div className="space-y-4">
+                {filtered.map(subject => {
+                    const chosen = plan.selections.find(s => s.code === subject.code);
+                    const isExpanded = chosen || expandedSubjects.has(subject.code);
+                    const options = faculty === 'All' ? subject.options : subject.options.filter(o => o.faculty === faculty);
+
+                    return (
+                        <div key={subject.code} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                            {/* Subject Header */}
+                            <div 
+                                onClick={() => toggleSubjectExpand(subject.code)}
+                                className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center cursor-pointer hover:bg-slate-100/60 transition-colors"
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded">{subject.code}</span>
+                                        <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded">{subject.type} · {subject.owner}</span>
+                                        {chosen && (
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">
+                                                Selected: {chosen.option.faculty} ({chosen.option.slots.join('+')})
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // prevent collapsing accordion
+                                                        onRemove(subject.code);
+                                                    }}
+                                                    className="text-emerald-900 hover:text-red-600 font-bold ml-1"
+                                                    title="Remove subject selection"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 mt-1">{subject.title}</h3>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full font-bold">{subject.credits} Credits</span>
+                                    <button className="text-xs font-semibold text-blue-600">
+                                        {isExpanded ? '▲ Hide Options' : '▼ Select & View Options'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Options Container */}
+                            {isExpanded && (
+                                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-50/30">
+                                    {options.map(opt => {
+                                        const selected = chosen?.option.id === opt.id;
+                                        const conflicts = slotConflicts(plan.selections, subject.code, opt);
+                                        const unavailable = conflicts.length > 0;
+                                        const conflictMessage = conflicts.map(s =>
+                                            `${s.option.slots.filter(slot => opt.slots.includes(slot)).join(' + ')} already selected in ${s.code} (${s.title})`
+                                        ).join('; ');
+
+                                        return (
+                                            <div key={opt.id} className={`p-2.5 rounded-lg border text-xs flex justify-between items-center gap-2 ${unavailable ? 'bg-amber-50 border-amber-200' : selected ? 'bg-blue-50 border-blue-500' : 'border-slate-200 bg-white'}`}>
+                                                <div>
+                                                    <div className="font-bold text-slate-800">{opt.faculty}</div>
+                                                    <div className="text-slate-500 mt-0.5">Slots: <span className="font-mono text-blue-700 font-semibold">{opt.slots.join(' + ')}</span> · Venue: {opt.venue}</div>
+                                                    {unavailable && <div className="text-amber-800 mt-1">Cannot select: {conflictMessage}.</div>}
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); 
+                                                        onSelect(subject, opt);
+                                                    }} 
+                                                    disabled={unavailable}
+                                                    className={`px-3 py-1.5 rounded-md font-medium shrink-0 transition-colors ${unavailable ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : selected ? 'bg-emerald-600 text-white' : 'bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700'}`}
+                                                >
+                                                    {unavailable ? 'Unavailable' : selected ? 'Selected' : 'Choose'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+        function ReviewsSection() {
+            const [rating, setRating] = useState(0);
+            const [name, setName] = useState('');
+            const [comment, setComment] = useState('');
+            const [data, setData] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [loadError, setLoadError] = useState('');
+            const [message, setMessage] = useState('');
+            const [error, setError] = useState('');
+            const [sending, setSending] = useState(false);
+            const load = async () => {
+                setLoading(true); setLoadError('');
+                try {
+                    const response = await fetch('/api/reviews');
+                    if (!response.ok) throw new Error();
+                    setData(await response.json());
+                } catch { setLoadError('Could not load reviews.'); }
+                finally { setLoading(false); }
+            };
+            useEffect(() => { load(); }, []);
+            const submit = async (event) => {
+                event.preventDefault();
+                if (sending) return;
+                setError(''); setMessage('');
+                if (!rating) { setError('Choose a star rating before submitting.'); return; }
+                setSending(true);
+                try {
+                    const response = await fetch('/api/reviews', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, rating, comment, website: new FormData(event.currentTarget).get('website') }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Unable to save your review. Please try again.');
+                    setMessage('Thank you! Your review has been shared.');
+                    setName(''); setComment(''); setRating(0);
+                    await load();
+                } catch (err) { setError(err.message || 'Unable to save your review. Please try again.'); }
+                finally { setSending(false); }
+            };
+            return (
+                <section aria-labelledby="reviews-title" className="no-print mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <p className="institution-kicker">Help improve the planner</p>
+                            <h3 id="reviews-title" className="text-xl font-bold text-slate-800 mt-1">How was your timetable experience?</h3>
+                            <p className="text-sm text-slate-500 mt-2">Rate the builder and share what worked or what needs fixing.</p>
+                            <form onSubmit={submit} className="space-y-3 mt-4">
+                                <fieldset disabled={sending}>
+                                    <legend className="text-sm font-semibold text-slate-700">Your rating (required)</legend>
+                                    <div className="flex gap-3 mt-2">
+                                        {[1, 2, 3, 4, 5].map(value => <label key={value} className="cursor-pointer text-center">
+                                            <input type="radio" name="rating" value={value} checked={rating === value} onChange={() => setRating(value)} className="peer sr-only" required />
+                                            <span aria-hidden="true" className={`block text-3xl rounded peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-slate-700 ${value <= rating ? 'text-amber-600' : 'text-slate-300'}`}>★</span>
+                                            <span className="sr-only">{value} {value === 1 ? 'star' : 'stars'}</span>
+                                        </label>)}
+                                    </div>
+                                </fieldset>
+                                <label className="block text-sm text-slate-700">Your name
+                                    <input required maxLength={80} autoComplete="name" value={name} onChange={e => setName(e.target.value)} disabled={sending} className="block w-full mt-1 rounded-md border border-slate-300 p-2" />
+                                </label>
+                                <label className="block text-sm text-slate-700">Your review
+                                    <textarea required maxLength={1500} rows={3} value={comment} onChange={e => setComment(e.target.value)} disabled={sending} className="block w-full mt-1 rounded-md border border-slate-300 p-2" placeholder="Tell us about your experience…" />
+                                </label>
+                                <div hidden aria-hidden="true"><label>Leave empty<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+                                <p className="text-xs text-slate-500">Your name, rating and review are public. Please avoid sharing personal details.</p>
+                                <button disabled={sending} className="rounded-md bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white px-4 py-2 text-sm font-semibold">{sending ? 'Submitting…' : 'Submit review'}</button>
+                                {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+                                {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}
+                            </form>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="rounded-lg bg-slate-50 p-4 text-sm">
+                                <h4 className="font-bold text-slate-800">Contact Pranav Pathak</h4>
+                                <p className="text-slate-500 mt-1">Found an issue or have a suggestion? Get in touch.</p>
+                                <a className="block mt-2 underline break-all" href="mailto:pranavpathakscsr@gmail.com">pranavpathakscsr@gmail.com</a>
+                                <a className="block mt-1 underline" href="tel:+918235491113">8235491113</a>
+                            </div>
+                            <div aria-live="polite">
+                                <h4 className="font-semibold text-slate-800">Student reviews</h4>
+                                {loading ? <p className="text-sm text-slate-500 mt-2">Loading reviews…</p> : loadError ? <p className="text-sm text-slate-600 mt-2">{loadError} <button onClick={load} className="underline">Try again</button></p> : data && <>
+                                    <p className="text-sm text-slate-600 mt-1">{data.total ? `${data.average.toFixed(1)} / 5 · ${data.total} review${data.total === 1 ? '' : 's'}` : 'No reviews yet. Be the first to share your experience.'}</p>
+                                    {data.reviews.map(review => <article key={review.id} className="border-t border-slate-200 mt-3 pt-3 text-sm">
+                                        <div className="flex flex-wrap justify-between gap-2"><strong className="text-slate-700 break-words">{review.name}</strong><span className="text-amber-700">{review.rating} / 5 stars</span></div>
+                                        <p className="text-slate-600 mt-1 whitespace-pre-wrap break-words">{review.comment}</p>
+                                    </article>)}
+                                    {data.total > 5 && <p className="mt-3 text-xs text-slate-500">Showing the 5 latest reviews. The average includes every review.</p>}
+                                </>}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            );
+        }
+
+        function GeneratorTab({ onApply }) {
+            const [picked, setPicked] = useState([]);
+            const [results, setResults] = useState(null);
+            const [generating, setGenerating] = useState(false);
+            const [generationError, setGenerationError] = useState('');
+            const [selectedAlternative, setSelectedAlternative] = useState(null);
+            const [returnForLunch, setReturnForLunch] = useState(false);
+            const [category, setCategory] = useState('');
+            const student = STUDENT_CATEGORIES[category];
+
+            const scheduledSubjects = INITIAL_SUBJECTS.filter(s => s.slotBased !== false);
+            const pickedCredits = scheduledSubjects.filter(s => picked.includes(s.code)).reduce((a, s) => a + s.credits, 0);
+            const changePicked = (codes) => {
+                const subjects = scheduledSubjects.filter(s => codes.includes(s.code));
+                if (totalCredits(subjects) > MAX_CREDITS) return;
+                setPicked(subjects.map(s => s.code)); setResults(null); setSelectedAlternative(null); setGenerationError('');
+            };
+            const toggle = (code) => changePicked(picked.includes(code) ? picked.filter(c => c !== code) : [...picked, code]);
+
+            const changeTeacher = (profileId, subjectCode, optionId) => {
+                setResults(previous => previous.map(result => {
+                    if (result.profile.id !== profileId || !result.combo) return result;
+                    const selection = result.combo.find(s => s.code === subjectCode);
+                    const choice = selection && teacherChoices(selection).find(({ option }) => option.id === optionId);
+                    if (!choice) return result;
+                    const combo = result.combo.map(s => s.code === subjectCode ? { ...s, option: choice.option } : s);
+                    return { ...result, combo, metrics: scheduleMetrics(combo, returnForLunch, category) };
+                }));
+            };
+
+            const run = () => {
+                if (!category) return;
+                if (!picked.length) return alert('Select at least one course to generate timetable options.');
+                if (pickedCredits > MAX_CREDITS) return alert(`Selected courses total ${pickedCredits} credits, which exceeds the ${MAX_CREDITS} credit limit.`);
+                setGenerationError('');
+                setSelectedAlternative(null);
+                setResults(null);
+                setGenerating(true);
+                setTimeout(() => {
+                    try { setResults(generateCombos(scheduledSubjects.filter(s => picked.includes(s.code)), returnForLunch, category)); }
+                    catch (error) { setResults(null); setGenerationError(error.message); }
+                    finally { setGenerating(false); }
+                }, 50);
+            };
+
+            return (
+                <div className="space-y-6">
+                    {results && <ReviewsSection />}
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-4">
+                        <div className="flex flex-wrap justify-between items-center gap-3">
+                            <div>
+                                <h2 className="font-bold text-slate-800 flex items-center gap-2"><Sparkles size={18} className="text-violet-600" /> Auto Generator</h2>
+                                <p className="text-xs text-slate-500">Generate 10 routine styles. Any routine with clashes offers up to 3 replacements; select one to resolve all conflicts before creating your timetable. Selected: {picked.length} courses, {pickedCredits} credits.</p>
+                                <p className="text-xs text-emerald-700 mt-2">Walking estimates include your starting point, classes, and return trip. AB-02 ↔ AB-01 / LC / AR is estimated at 1.5 km. Routines favor grouped classes and fewer crossings. CR rooms belong to AB-01 / LC / AR; Linux Administration is online.</p>
+                            </div>
+                            <div className="flex gap-2">
+
+                                <button disabled={generating} onClick={() => changePicked([])} className="px-3 py-1.5 text-xs border border-slate-300 rounded-md hover:bg-slate-100">Clear</button>
+                                <button onClick={run} disabled={generating || !category || !picked.length || pickedCredits > MAX_CREDITS} className="px-4 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-md font-medium flex items-center gap-1"><Sparkles size={14} /> {generating ? 'Generating routines…' : 'Generate 10 timetables'}</button>
+                            </div>
+                        </div>
+                        <fieldset className="student-category" disabled={generating}>
+                            <legend>01 / Your starting point</legend>
+                            <p className="text-xs text-slate-500 mb-4">Which category of student are you? Choose one to calculate your walking routes.</p>
+                            <div className="category-options">
+                                {Object.entries(STUDENT_CATEGORIES).map(([id, item]) => <label key={id} className={`category-option ${category === id ? 'is-selected' : ''}`}>
+                                    <input type="radio" name="student-category" value={id} checked={category === id} onChange={() => { setCategory(id); setReturnForLunch(false); setResults(null); }} />
+                                    <span><strong>{item.label}</strong><small>AB-01 / LC / AR · {item.central} km<br />AB-02 · {item.ab02} km</small></span>
+                                </label>)}
+                            </div>
+                            {student && <p className="text-xs text-slate-600 mt-3">Routes begin and end at {student.origin.toLowerCase()}. {category === 'day' ? 'Day-scholar distances are measured from your campus arrival point.' : 'Hostel departures and optional lunch returns use these distances.'}</p>}
+                        </fieldset>
+                        <div className="credit-budget" role="status" aria-live="polite">
+                            <div className="flex flex-wrap justify-between gap-2 text-sm"><strong>{pickedCredits} / {MAX_CREDITS} credits selected</strong><span>{MAX_CREDITS - pickedCredits} credits remaining</span></div>
+                            <progress value={pickedCredits} max={MAX_CREDITS} aria-label="Selected course credits" />
+                            <p className="text-xs text-slate-600 mt-2">Maximum 27 credits per timetable. Courses exceeding your remaining allowance are unavailable; deselect a course to make room.</p>
+                        </div>
+                        {category && category !== 'day' && <label className="flex items-start gap-2 text-xs text-slate-600 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                            <input type="checkbox" disabled={generating} checked={returnForLunch} onChange={e => { setReturnForLunch(e.target.checked); setResults(null); }} className="mt-0.5" />
+                            <span><strong>Choose hostel lunch when at least 90 minutes are free within 12:30–14:30 (12:30–2:30 pm).</strong> Lunch timing is your choice; the college has no fixed lunch period. This optional travel estimate reserves 90 minutes for the hostel trip and lunch, includes both hostel legs, and favors a shorter return journey. Otherwise, stay on campus until the last class to save walking. All classes, including online classes, keep their scheduled times; no extra hostel trips are assumed during other gaps.</span>
+                        </label>}
+                        <p className="text-xs text-slate-600">DSN2099 · Project Exhibition - II has no timetable slots and is excluded from routine generation. Its 1 credit is separate from the generated timetable’s selected credits; include it when checking your semester total.</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {scheduledSubjects.map(s => (
+                                <label key={s.code} className={`p-3 border rounded-lg text-xs flex items-center gap-3 cursor-pointer transition-colors ${!picked.includes(s.code) && pickedCredits + s.credits > MAX_CREDITS ? 'credit-unavailable' : ''} ${picked.includes(s.code) ? 'border-violet-400 bg-violet-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                                    <input type="checkbox" checked={picked.includes(s.code)} disabled={generating || (!picked.includes(s.code) && pickedCredits + s.credits > MAX_CREDITS)} onChange={() => toggle(s.code)} className="rounded" />
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-slate-800">{s.code} <span className="font-normal text-slate-500">· {s.credits} cr</span></div>
+                                        <div className="text-slate-500 truncate text-[11px]">{s.title}</div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {generationError && <p role="alert" className="text-sm text-amber-800">{generationError}</p>}
+                    {results && (
+                        <div className="space-y-3" aria-live="polite">
+                            <h3 className="font-bold text-slate-800 text-sm">{results.filter(result => result.combo).length} timetable options · {student.label}</h3>
+                            <p className="text-xs text-slate-500">All 10 routine styles include every selected course. For each routine with clashes, review its best available replacements below. Replacements prioritize fewer slot changes, then your travel preferences and routine style. Select a replacement that resolves every clash before creating that timetable. Search is bounded; fewer than 3 replacements may be available.</p>
+                            <p className="text-xs text-slate-500">Different routine styles may recommend the same slots when those best fit your selected courses.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {results.map(({ profile, combo, metrics, alternatives, resolutionError, resolved }, idx) => (
+                                    <div key={profile.id} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm space-y-3 min-w-0">
+                                        <div>
+                                            <div className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Routine {idx + 1} / {results.length}</div>
+                                            <h4 className="font-bold text-slate-800">{profile.name}</h4>
+                                            <p className="text-xs text-slate-500 mt-1">{profile.description}</p>
+                                        </div>
+                                        <>
+                                            {!metrics.clashPeriods && <label className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 cursor-pointer">
+                                                <input type="radio" name="resolved-alternative" checked={selectedAlternative === profile.id} onChange={() => setSelectedAlternative(profile.id)} />
+                                                Select this clash-free routine
+                                            </label>}
+                                            {resolved && <p className="text-xs text-emerald-700" role="status">Replacement selected. All conflicts resolved.</p>}
+                                            {metrics.clashPeriods > 0 && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
+                                                <strong className="text-sm text-amber-900">Resolve this routine’s clashes</strong>
+                                                <ul className="text-xs text-amber-900 space-y-1">{checkClashes(combo).map(clash => <li key={clash.key}>{clash.key}: {clash.items.map(item => item.code).join(" / ")}</li>)}</ul>
+                                                {alternatives.length < 3 && <p className="text-xs text-amber-900">{alternatives.length ? `Only ${alternatives.length} distinct clash-free replacements found.` : (resolutionError || "No clash-free replacement found within the search limit. Change your selected courses and regenerate.")}</p>}
+                                                {alternatives.map((alternative, repairIndex) => <div key={alternative.key} className="rounded border border-amber-200 bg-white p-3 text-xs space-y-2">
+                                                    <strong>Replacement {repairIndex + 1} · Clash free · ~{alternative.metrics.walkingKm.toFixed(1)} km/week</strong>
+                                                    <p>{alternative.metrics.days} campus days · {alternative.metrics.gaps} free periods</p>
+                                                    {alternative.combo.filter(selection => selection.option.id !== combo.find(s => s.code === selection.code).option.id).map(selection => <p key={selection.code}><strong>{selection.code}</strong>: {combo.find(s => s.code === selection.code).option.slots.join(" + ")} → {selection.option.slots.join(" + ")} · {selection.option.faculty} · {selection.option.venue}</p>)}
+                                                    <button type="button" onClick={() => {
+                                                        if (checkClashes(alternative.combo).length) return;
+                                                        setResults(previous => previous.map(result => result.profile.id === profile.id ? { ...result, combo: alternative.combo, metrics: alternative.metrics, resolved: true } : result));
+                                                        setSelectedAlternative(profile.id);
+                                                    }} className="px-3 py-2 rounded bg-emerald-700 text-white">Select replacement {repairIndex + 1} and resolve all clashes</button>
+                                                </div>)}
+                                            </div>}
+                                            <div className={`text-xs ${metrics.clashPeriods ? 'text-amber-800' : 'text-emerald-700'}`}>{metrics.clashPeriods ? `${metrics.clashPeriods} conflicting periods · overlapping classes need resolution` : 'Clash free'} · {metrics.days} campus days · {metrics.gaps} free periods between classes</div>
+                                            <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                                                <strong>~{metrics.walkingKm.toFixed(1)} km walking/week · {metrics.crossings} direct AB-02 crossings</strong>
+                                                <p className="mt-1">Includes ~{metrics.hostelKm.toFixed(1)} km on {student.origin.toLowerCase()} legs and {metrics.lunchReturns} lunch returns. Online classes add no classroom travel. Short walks within AB-01 / LC / AR (including CR rooms) are excluded; distances are estimates.</p>
+                                                <details className="mt-2">
+                                                    <summary className="cursor-pointer font-medium">Daily walking routes</summary>
+                                                    <ul className="mt-2 space-y-1">{metrics.dailyTravel.map(trip => <li key={trip.day}><strong>{trip.day}: ~{trip.km.toFixed(1)} km</strong> · {trip.route.join(' → ')}</li>)}</ul>
+                                                </details>
+                                                {metrics.unknownVenueClasses > 0 && <p className="mt-1 text-amber-800">Some venues are unspecified or unmapped; their walking distance is excluded.</p>}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {combo.map(s => (
+                                                    <div key={s.code} className="text-xs text-slate-600">
+                                                        <div><span className="font-bold">{s.code}</span> · {s.title}</div>
+                                                        <div>{s.option.faculty} · {s.option.venue}</div>
+                                                        <span className="font-mono text-blue-700">{s.option.slots.join(' + ')}</span>
+                                                        <label className="block mt-2">
+                                                            <span className="block text-[11px] font-medium text-slate-500 mb-1">Teacher &amp; room · same slots</span>
+                                                            <select
+                                                                aria-label={`${profile.name}: teacher and room for ${s.code}, same slots`}
+                                                                value={s.option.id}
+                                                                onChange={e => changeTeacher(profile.id, s.code, e.target.value)}
+                                                                className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            >
+                                                                {teacherChoices(s).map(({ option, location }) => (
+                                                                    <option key={option.id} value={option.id}>{option.faculty} · {option.venue} · {location}</option>
+                                                                ))}
+                                                            </select>
+                                                            <span className="block mt-1 text-[10px] text-slate-500">{teacherChoices(s).length > 1 ? 'Same building options first, then nearby buildings. All course slots stay fixed; no extra AB-02 crossings.' : 'No other teacher or room is listed in these exact slots within the same building group.'}</span>
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {selectedAlternative === profile.id && !checkClashes(combo).length && <details className="pt-2 border-t border-slate-100">
+                                                <summary className="text-xs font-medium text-blue-700 cursor-pointer mb-2">View weekly timetable</summary>
+                                                <TimetableGrid selections={combo} />
+                                            </details>}
+                                            <button disabled={selectedAlternative !== profile.id || checkClashes(combo).length > 0} onClick={() => { if (selectedAlternative === profile.id && !checkClashes(combo).length) onApply(combo); }} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs rounded font-medium">Create timetable with {profile.name}</button>
+                                        </>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function CompareTab({ plans, activePlanId, onOpen }) {
+            return (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {plans.map(p => {
+                        const clashes = checkClashes(p.selections);
+                        return (
+                            <div key={p.id} className={`p-4 border rounded-xl bg-white shadow-sm space-y-3 ${p.id === activePlanId ? 'border-blue-500' : 'border-slate-200'}`}>
+                                <div className="flex justify-between items-center gap-2">
+                                    <h3 className="font-bold text-slate-800 truncate">{p.name}</h3>
+                                    <span className={`text-xs px-2 py-0.5 rounded font-bold shrink-0 ${clashes.length ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        {clashes.length ? `${clashes.length} Clashes` : 'Clash Free'}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-slate-500">Credits: <span className="font-bold text-slate-700">{totalCredits(p.selections)} / {MAX_CREDITS}</span> · Courses: <span className="font-bold text-slate-700">{p.selections.length}</span></div>
+                                <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                                    {p.selections.length === 0 && <div className="text-xs text-slate-400">Empty plan</div>}
+                                    {p.selections.map(s => (
+                                        <div key={s.code} className="text-xs flex justify-between gap-2 bg-slate-50 p-2 rounded border border-slate-200">
+                                            <span className="font-medium text-slate-700 truncate">{s.code} - {s.option.faculty}</span>
+                                            <span className="font-mono text-blue-600 font-bold shrink-0">{s.option.slots.join('+')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {p.id !== activePlanId && (
+                                    <button onClick={() => onOpen(p.id)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md hover:bg-slate-100">Open this plan</button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        function MainBuilderView({ plan, onSelect, onRemove }) {
+            return (
+        <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Side: Subject Selection List */}
+                <div className="lg:col-span-7 space-y-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <h2 className="text-base font-bold text-slate-800 mb-3">Select Courses & Slots</h2>
+                        <SubjectsTab plan={plan} onSelect={onSelect} onRemove={onRemove} />
+                    </div>
+                </div>
+
+                {/* Right Side: Live Timetable Preview */}
+                <div className="lg:col-span-5">
+                    <div className="sticky top-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                            <h2 className="text-base font-bold text-slate-800">Live Timetable Preview</h2>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+                                {plan.selections.length} Courses Added
+                            </span>
+                        </div>
+
+                        {/* Renders your weekly timetable grid */}
+                        <TimetableGridView selections={plan.selections} />
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    );
+}
+
+        // ==========================================
+        // 4. APP
+        // ==========================================
+       
+
+        function App() {
+            const [plans, setPlans] = useState(loadPlans);
+            const [activePlanId, setActivePlanId] = useState(() => plans[0].id);
+            const [tab, setTab] = useState('dashboard');
+
+            useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(plans)); }, [plans]);
+
+            const plan = plans.find(p => p.id === activePlanId) || plans[0];
+            const clashes = useMemo(() => checkClashes(plan.selections), [plan.selections]);
+
+            const updatePlan = (fn) => setPlans(ps => ps.map(p => p.id === plan.id ? { ...p, ...fn(p) } : p));
+
+            const selectOption = (subject, option) => {
+                const conflicts = slotConflicts(plan.selections, subject.code, option);
+                if (conflicts.length) {
+                    alert(`Cannot select this slot: already selected in ${conflicts.map(s => s.code).join(', ')}. Change or remove that selection first.`);
+                    return;
+                }
+                const exists = plan.selections.some(s => s.code === subject.code);
+                if (!exists && totalCredits(plan.selections) + subject.credits > MAX_CREDITS) {
+                    alert(`Cannot add ${subject.code}: it would exceed the ${MAX_CREDITS} credit limit.`);
+                    return;
+                }
+                updatePlan(p => ({
+                    selections: exists
+                        ? p.selections.map(s => s.code === subject.code ? { ...subject, option } : s)
+                        : [...p.selections, { ...subject, option }]
+                }));
+            };
+            const removeCourse = (code) => updatePlan(p => ({ selections: p.selections.filter(s => s.code !== code) }));
+
+            const createPlan = () => {
+                const name = prompt('Name for the new timetable plan:', `Plan ${plans.length + 1}`);
+                if (!name) return;
+                const np = { id: `plan-${Date.now()}`, name, selections: [] };
+                setPlans(ps => [...ps, np]);
+                setActivePlanId(np.id);
+            };
+            const renamePlan = () => {
+                const name = prompt('Rename plan:', plan.name);
+                if (name) updatePlan(() => ({ name }));
+            };
+            const duplicatePlan = () => {
+                const np = { id: `plan-${Date.now()}`, name: `${plan.name} (Copy)`, selections: JSON.parse(JSON.stringify(plan.selections)) };
+                setPlans(ps => [...ps, np]);
+                setActivePlanId(np.id);
+            };
+            const deletePlan = () => {
+                if (plans.length <= 1) return alert('You must keep at least one plan.');
+                if (!confirm(`Delete "${plan.name}"?`)) return;
+                const rest = plans.filter(p => p.id !== plan.id);
+                setPlans(rest);
+                setActivePlanId(rest[0].id);
+            };
+            const applyCombo = (combo) => {
+                if (checkClashes(combo).length) return alert('Resolve all overlapping classes before creating a timetable.');
+                if (totalCredits(combo) > MAX_CREDITS) return alert(`Cannot apply a timetable above ${MAX_CREDITS} credits.`);
+                updatePlan(() => ({ selections: combo }));
+                setTab('dashboard');
+            };
+
+            const exportCSV = () => {
+                if (checkClashes(plan.selections).length) return alert('Resolve all overlapping classes before exporting this timetable.');
+                const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+                const rows = [['Course Code', 'Course Title', 'Credits', 'Type', 'Faculty', 'Slots', 'Venue']]
+                    .concat(plan.selections.map(s => [s.code, s.title, s.credits, s.type, s.option.faculty, s.option.slots.join('+'), s.option.venue]));
+                const blob = new Blob([rows.map(r => r.map(esc).join(',')).join('\n')], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${plan.name.replace(/\s+/g, '_')}_FFCS.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const tabs = [
+                { id: 'dashboard', label: 'Timetable', icon: Calendar },
+                { id: 'subjects', label: 'Subjects & Builder', icon: BookOpen },
+                { id: 'generator', label: 'Generator', icon: Sparkles },
+                { id: 'compare', label: 'Compare Plans', icon: Columns }
+            ];
+
+            const iconBtn = 'p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-700 transition-colors';
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <div className="developer-strip">developed by MR PRANAV PATHAK</div>
+                    <header className="institution-header">
+                        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="institution-mark" aria-hidden="true">VIT</div>
+                                <div>
+                                    <p className="institution-kicker">Academic planning · Student portal</p>
+                                    <h1 className="font-bold text-lg leading-tight">VIT Bhopal FFCS Timetable Builder</h1>
+                                    <p className="semester">Winter Semester 2026–27 · Fully Flexible Credit System</p>
+                                </div>
+                            </div>
+                            <div className="no-print flex items-center gap-1 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                                <select value={plan.id} onChange={e => setActivePlanId(e.target.value)}
+                                    className="bg-slate-900 text-white text-sm rounded-md px-2 py-1.5 border border-slate-600 focus:outline-none max-w-[220px]">
+                                    {plans.map(p => <option key={p.id} value={p.id}>{p.name} ({p.selections.length})</option>)}
+                                </select>
+                                <button onClick={createPlan} title="New plan" className={iconBtn}><Plus size={16} /></button>
+                                <button onClick={renamePlan} title="Rename plan" className={iconBtn}><Edit3 size={16} /></button>
+                                <button onClick={duplicatePlan} title="Duplicate plan" className={iconBtn}><Copy size={16} /></button>
+                                <button onClick={deletePlan} title="Delete plan" className="p-2 rounded-md text-slate-300 hover:text-red-400 hover:bg-slate-700"><Trash2 size={16} /></button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <nav aria-label="Main navigation" className="portal-nav no-print">
+                        <div className="max-w-7xl mx-auto px-4 py-2 flex flex-wrap justify-between items-center gap-2">
+                            <div className="flex gap-1 overflow-x-auto">
+                                {tabs.map(t => (
+                                    <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${tab === t.id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                        <t.icon size={16} /> {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg hover:bg-slate-100"><Download size={14} /> Export CSV</button>
+                                <button onClick={() => { setTab('dashboard'); setTimeout(() => window.print(), 50); }} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-slate-300 rounded-lg hover:bg-slate-100"><Printer size={14} /> Print</button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+                        <div className="page-intro"><div><p className="institution-kicker">VIT Bhopal / Academic planning</p><h2>{tabs.find(t => t.id === tab).label}</h2><p>{{ dashboard: 'Your weekly academic schedule, at a glance.', subjects: 'Select courses and view your live timetable side by side.', generator: 'Plan your semester with a maximum of 27 credits.', compare: 'Review your saved timetables side by side.' }[tab]}</p></div><span className="text-xs text-slate-500">Winter Semester 2026–27</span></div>
+                        <div className="mb-4 flex items-center gap-2 text-sm text-slate-500">
+                            <Clock size={14} /> Active plan: <span className="font-semibold text-slate-800">{plan.name}</span>
+                        </div>
+                        {tab === 'dashboard' && <>{plan.selections.length > 0 && <ReviewsSection />}<DashboardTab plan={plan} clashes={clashes} onRemove={removeCourse} /></>}
+                        {tab === 'subjects' && <MainBuilderView plan={plan} clashes={clashes} onSelect={selectOption} onRemove={removeCourse} />}
+                        {tab === 'generator' && <GeneratorTab onApply={applyCombo} />}
+                        {tab === 'compare' && <CompareTab plans={plans} activePlanId={plan.id} onOpen={(id) => { setActivePlanId(id); setTab('dashboard'); }} />}
+                    </main>
+
+                    <footer className="portal-footer no-print text-center text-xs py-5 px-4">
+                        <p className="font-semibold mb-1">VIT Bhopal · FFCS Timetable Builder</p>
+                        <p>Plans are saved in your browser. Always confirm slots on the official VTOP portal.</p>
+                        <p className="mt-2">Contact Pranav Pathak · <a className="underline break-all" href="mailto:pranavpathakscsr@gmail.com">pranavpathakscsr@gmail.com</a> · <a className="underline" href="tel:+918235491113">8235491113</a></p>
+                    </footer>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
